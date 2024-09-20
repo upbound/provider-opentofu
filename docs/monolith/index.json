@@ -6,9 +6,5 @@
 	{
 		"name": "Configuration",
 		"location": "Configuration.md"
-	},
-	{
-		"name": "Migration Guide",
-		"location": "MigrationGuide.md"
 	}
 ]

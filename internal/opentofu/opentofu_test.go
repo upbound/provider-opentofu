@@ -175,7 +175,7 @@ func TestClassify(t *testing.T) {
 
 	expectedOutput["unexpectedName"] = errors.New(
 		heredoc.Doc(
-			`Terraform encountered an error. Summary: Unsupported argument. To see the full error run: echo "H4sIAAAAAAAA/zyPMWoDMRBFe5/iI1xmhU26hRQpcoTUi6L9jhdbIzEa4QXjxmfwCX2SsGFxMUzzeLz/fNzxpZq1x7fUVkpW44igvy1RbPN83JcDkAXGat4OOE9C7HdvmATKmptGwoVLHer78NPiiebgOIdUznT9KtjvegASEvEBF0u3At32alQNh6zJX7KeagmRt2571SBjTsM0+hX1R84394r6lFfov3eEW57DVCHZwLkwLnOOVPrNHwAAAP//AQAA//+ac3Cu7AAAAA==" | base64 -d | gunzip`,
+			`OpenTofu encountered an error. Summary: Unsupported argument. To see the full error run: echo "H4sIAAAAAAAA/zyPMWoDMRBFe5/iI1xmhU26hRQpcoTUi6L9jhdbM2Ik4QXjxmfwCX2SsGFxMUzzeLz/fNzxZabW41tKy1mtckSw35YodfN83JcDoILKUn094DwJsd+9YRIYizaLhAuXMpT34afFE6uD4xxSPtP1q2C/6wFISMQHXMzdCnTbq2ZK1UPzF7VTySHy1m2vFmTUNEyjX0l/5Hxzr6ZPeXX+a0e45TlMBaIVnDPjsuZIo9/8AQAA//8BAAD//1Bzr8vrAAAA" | base64 -d | gunzip`,
 		),
 	)
 
@@ -193,7 +193,7 @@ func TestClassify(t *testing.T) {
 
 	expectedOutput["tooManyListItems"] = errors.New(
 		heredoc.Doc(
-			`Terraform encountered an error. Summary: Too many list items. To see the full error run: echo "H4sIAAAAAAAA/3yRwWrbQBBA7/mKQacGjNGmoSBDDrGQQKZxLGl3Eb2IlbSSt1ntmN0Vcq/5hnyhv6S0lX0qOQwzA8N7zMzl4x0Sa9FugCLCKMwv0Mp5UF6O7u7y8f4nAGBW/ghidnWLg1Ee68lJW58Qdd1qJY1f/0urZR4NjEKZte9BKyPhgaxAGbDS4WRbCcFnrACCpdgsuAeyAQChNc6yq1FM/lj3GmcHT/DToelki5380ggnvz0uTZDF2yZ7S19oElVVmCaU6deKcFrwXc+SlDLSHdhb0eecszLOXBbvtjQ5HziJyoL9KAu+zypSHMqQv1ZhynkyqO/xs8rZ+YWSrud8nzId5TnfUx5GZZFGW86LLFPzcPNefWSXXxlVjk/B/f3tus/eW9VMXv53QTedTmi9g69/nwKjOKtxGlfQTB5aNL0a4CgcPEInWy2s7NZ3vwEAAP//AQAA//9AvYb+1wEAAA==" | base64 -d | gunzip`,
+			`OpenTofu encountered an error. Summary: Too many list items. To see the full error run: echo "H4sIAAAAAAAA/3yRwWrbQBBA7/mKQacGjNGmoSBDDrGQQKZxLGl3Eb2IlbSSt1ntmN0Vcq/5hnyhv6S0lX0qOQwzA8N7zMzl4x0Sa9FugCLCKMwv0Mp5UF6O7u7y8f4nAGBW/ghidnWLg1Ee68lJW58Qdd1qJY1f/0urZR4NjEKZte9BKyPhgaxAGbDS4WRbCcFnrACCpdgsuAeyAQChNc6yq1FM/lj3GmcHT/DToelki5380ggnvz0uTZDF2yZ7S19oElVVmCaU6deKcFrwXc+SlDLSHdhb0eecszLOXBbvtjQ5HziJyoL9KAu+zypSHMqQv1ZhynkyqO/xs8rZ+YWSrud8nzId5TnfUx5GZZFGW86LLFPzcPNefWSXXxlVjk/B/f3tus/eW9VMXv53QTedTmi9g69/nwKjOKtxGlfQTB5aNL0a4CgcPEInWy2s7NZ3vwEAAP//AQAA//9AvYb+1wEAAA==" | base64 -d | gunzip`,
 		),
 	)
 
@@ -227,7 +227,7 @@ func TestFormatTofuErrorOutput(t *testing.T) {
 	expectedOutput["unexpectedName"]["summary"] = heredoc.Doc(`
 	Unsupported argument`)
 
-	expectedOutput["unexpectedName"]["base64full"] = "H4sIAAAAAAAA/zyPMWoDMRBFe5/iI1xmhU26hRQpcoTUi6L9jhdbIzEa4QXjxmfwCX2SsGFxMUzzeLz/fNzxpZq1x7fUVkpW44igvy1RbPN83JcDkAXGat4OOE9C7HdvmATKmptGwoVLHer78NPiiebgOIdUznT9KtjvegASEvEBF0u3At32alQNh6zJX7KeagmRt2571SBjTsM0+hX1R84394r6lFfov3eEW57DVCHZwLkwLnOOVPrNHwAAAP//AQAA//+ac3Cu7AAAAA=="
+	expectedOutput["unexpectedName"]["base64full"] = "H4sIAAAAAAAA/zyPMWoDMRBFe5/iI1xmhU26hRQpcoTUi6L9jhdbM2Ik4QXjxmfwCX2SsGFxMUzzeLz/fNzxZabW41tKy1mtckSw35YodfN83JcDoILKUn094DwJsd+9YRIYizaLhAuXMpT34afFE6uD4xxSPtP1q2C/6wFISMQHXMzdCnTbq2ZK1UPzF7VTySHy1m2vFmTUNEyjX0l/5Hxzr6ZPeXX+a0e45TlMBaIVnDPjsuZIo9/8AQAA//8BAAD//1Bzr8vrAAAA"
 
 	tofuerrs["tooManyListItems"] = heredoc.Doc(`
 	│ Error: Too many list items

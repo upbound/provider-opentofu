@@ -29,7 +29,7 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A ProviderConfig configures a OpenTofu provider.
+        description: A ProviderConfig configures the OpenTofu provider.
         properties:
           apiVersion:
             description: |-
@@ -53,16 +53,16 @@ spec:
             properties:
               backendFile:
                 description: |-
-                  OpenTofu backend file configuration content,
+                  Tofu backend file configuration content,
                   it has the contents of the backend block as top-level attributes,
-                  without the need to wrap it in another terraform or backend block.
+                  without the need to wrap it in another opentofu or backend block.
                   More details at https://opentofu.org/docs/language/settings/backends/configuration/#file.
                 type: string
               configuration:
                 description: |-
                   Configuration that should be injected into all workspaces that use
                   this provider config, expressed as inline HCL. This can be used to
-                  automatically inject OpenTofu provider configuration blocks.
+                  automatically inject Terraform provider configuration blocks.
                 type: string
               credentials:
                 description: Credentials required to authenticate to this provider.
@@ -131,7 +131,7 @@ spec:
               pluginCache:
                 default: true
                 description: |-
-                  PluginCache enables OpenTofu provider plugin caching mechanism
+                  PluginCache enables tofu provider plugin caching mechanism
                   https://opentofu.org/docs/cli/config/config-file/#provider-plugin-cache
                 type: boolean
             type: object

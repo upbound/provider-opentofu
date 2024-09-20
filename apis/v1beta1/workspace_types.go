@@ -23,7 +23,7 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-// A Var represents a Terraform configuration variable.
+// A Var represents a tofu configuration variable.
 type Var struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -106,7 +106,7 @@ const (
 type WorkspaceParameters struct {
 	// The root module of this workspace; i.e. the module containing its main.tf
 	// file. When the workspace's source is 'Remote' (the default) this can be
-	// any address supported by opentofu init -from-module, for example a git
+	// any address supported by tofu init -from-module, for example a git
 	// repository or an S3 bucket. When the workspace's source is 'Inline' the
 	// content of a simple main.tf or main.tf.json file may be written inline.
 	Module string `json:"module"`
@@ -118,7 +118,7 @@ type WorkspaceParameters struct {
 	// Source of the root module of this workspace.
 	Source ModuleSource `json:"source"`
 
-	// Entrypoint for `opentofu init` within the module
+	// Entrypoint for `tofu init` within the module
 	// +kubebuilder:default=""
 	// +optional
 	Entrypoint string `json:"entrypoint"`
@@ -140,16 +140,16 @@ type WorkspaceParameters struct {
 	// +optional
 	VarFiles []VarFile `json:"varFiles,omitempty"`
 
-	// Arguments to be included in the opentofu init CLI command
+	// Arguments to be included in the tofu init CLI command
 	InitArgs []string `json:"initArgs,omitempty"`
 
-	// Arguments to be included in the opentofu plan CLI command
+	// Arguments to be included in the tofu plan CLI command
 	PlanArgs []string `json:"planArgs,omitempty"`
 
-	// Arguments to be included in the opentofu apply CLI command
+	// Arguments to be included in the tofu apply CLI command
 	ApplyArgs []string `json:"applyArgs,omitempty"`
 
-	// Arguments to be included in the opentofu destroy CLI command
+	// Arguments to be included in the tofu destroy CLI command
 	DestroyArgs []string `json:"destroyArgs,omitempty"`
 
 	// Boolean value to indicate CLI logging of tofu execution is enabled or not
@@ -177,7 +177,7 @@ type WorkspaceStatus struct {
 
 // +kubebuilder:object:root=true
 
-// A Workspace of Terraform Configuration.
+// A Workspace of OpenTofu Configuration.
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"

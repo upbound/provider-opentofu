@@ -41,7 +41,7 @@ type ProviderConfigSpec struct {
 	// +optional
 	BackendFile *string `json:"backendFile,omitempty"`
 
-	// PluginCache enables opentofu provider plugin caching mechanism
+	// PluginCache enables tofu provider plugin caching mechanism
 	// https://opentofu.org/docs/cli/config/config-file/#provider-plugin-cache
 	// +optional
 	// +kubebuilder:default=true
@@ -68,7 +68,7 @@ type ProviderConfigStatus struct {
 
 // +kubebuilder:object:root=true
 
-// A ProviderConfig configures a Terraform provider.
+// A ProviderConfig configures the OpenTofu provider.
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="SECRET-NAME",type="string",JSONPath=".spec.credentials.secretRef.name",priority=1

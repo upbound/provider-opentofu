@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package apis contains Kubernetes API for the opentofu provider.
+// Package apis contains Kubernetes API for the OpenTofu provider.
 package apis
 
 import (

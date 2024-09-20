@@ -31,7 +31,7 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A Workspace of tofu Configuration.
+        description: A Workspace of OpenTofu Configuration.
         properties:
           apiVersion:
             description: |-
@@ -72,20 +72,19 @@ spec:
                   Workspace.
                 properties:
                   applyArgs:
-                    description: Arguments to be included in the tofu apply CLI
-                      command
+                    description: Arguments to be included in the tofu apply CLI command
                     items:
                       type: string
                     type: array
                   destroyArgs:
-                    description: Arguments to be included in the tofu destroy
-                      CLI command
+                    description: Arguments to be included in the tofu destroy CLI
+                      command
                     items:
                       type: string
                     type: array
-                  enableOpenTofuCLILogging:
-                    description: Boolean value to indicate CLI logging of tofu
-                      execution is enabled or not
+                  enableTofuCLILogging:
+                    description: Boolean value to indicate CLI logging of tofu execution
+                      is enabled or not
                     type: boolean
                   entrypoint:
                     default: ""
@@ -142,8 +141,7 @@ spec:
                       type: object
                     type: array
                   initArgs:
-                    description: Arguments to be included in the tofu init CLI
-                      command
+                    description: Arguments to be included in the tofu init CLI command
                     items:
                       type: string
                     type: array
@@ -164,8 +162,7 @@ spec:
                       content of a simple main.tf or main.tf.json file may be written inline.
                     type: string
                   planArgs:
-                    description: Arguments to be included in the tofu plan CLI
-                      command
+                    description: Arguments to be included in the tofu plan CLI command
                     items:
                       type: string
                     type: array
