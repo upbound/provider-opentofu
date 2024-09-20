@@ -1,0 +1,15 @@
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-opentofu
+  annotations:
+    meta.crossplane.io/maintainer: Upbound <support@upbound.io>
+    meta.crossplane.io/source: github.com/upbound/provider-opentofu
+    meta.crossplane.io/description: |
+      Crossplane provider to manage OpenTofu workspaces.
+    meta.crossplane.io/readme: |
+      Crossplane provider that lets you manage resources
+      using virtual OpenTofu workspaces. It is developed and supported by
+      Upbound. Available resources and their fields can be found in the [Upbound
+      Marketplace](https://marketplace.upbound.io/providers/upbound/provider-opentofu).
+    friendly-name.meta.crossplane.io: Provider OpenTofu

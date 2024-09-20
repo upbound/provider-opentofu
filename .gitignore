@@ -1,0 +1,23 @@
+/.cache
+/.work
+/_output
+cover.out
+/vendor
+/.vendor-new
+.registry
+
+# ignore GoLand files (debug config etc...)
+/.idea
+
+# ignore vscode files (debug config etc...)
+/.vscode
+
+# ignore asdf local versions
+/.tool-versions
+
+# local tf dir
+/tf
+
+# common credentials
+kubeconfig
+credentials.json

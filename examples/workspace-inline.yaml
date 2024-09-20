@@ -1,0 +1,37 @@
+apiVersion: opentofu.upbound.io/v1beta1
+kind: Workspace
+metadata:
+  name: example-inline
+  annotations:
+    meta.upbound.io/example-id: opentofu/v1beta1/workspace
+    # The opentofu workspace will be named 'coolbucket'. If you omit this
+    # annotation it would be derived from metadata.name - e.g. 'example-inline'.
+    crossplane.io/external-name: coolbucket
+spec:
+  forProvider:
+    # Workspaces default to using a remote source - like workspace-remote.yaml.
+    # For simple cases you can use an inline source to specify the content of
+    # main.tf as opaque, inline HCL.
+    source: Inline
+    module: |
+      // Outputs are written to the connection secret.
+      output "url" {
+        value       = google_storage_bucket.example.self_link
+      }
+
+      resource "random_id" "example" {
+        byte_length = 4
+      }
+
+      // The google provider and remote state are configured by the provider
+      // config - see providerconfig.yaml.
+      resource "google_storage_bucket" "example" {
+        name = "crossplane-example-${terraform.workspace}-${random_id.example.hex}"
+        location      = "US"
+        force_destroy = true
+      
+        public_access_prevention = "enforced"
+      }
+  writeConnectionSecretToRef:
+    namespace: default
+    name: opentofu-workspace-example-inline

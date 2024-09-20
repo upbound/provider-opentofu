@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - release-*
+  pull_request: {}
+  workflow_dispatch: {}
+
+jobs:
+  ci:
+    uses: upbound/official-providers-ci/.github/workflows/provider-ci.yml@main
+    with:
+      go-version: "1.22"
+      upjet-based-provider: false
+    secrets:
+      UPBOUND_MARKETPLACE_PUSH_ROBOT_USR: ${{ secrets.UPBOUND_MARKETPLACE_PUSH_ROBOT_USR }}
+      UPBOUND_MARKETPLACE_PUSH_ROBOT_PSW: ${{ secrets.UPBOUND_MARKETPLACE_PUSH_ROBOT_PSW }}
