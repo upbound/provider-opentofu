@@ -28,7 +28,7 @@ GO111MODULE = on
 # KIND_VERSION = v0.15.0
 UP_VERSION = v0.33.0
 # UP_CHANNEL = stable
-UPTEST_VERSION = v1.1.2
+UPTEST_VERSION = v0.13.1
 CROSSPLANE_VERSION = 1.17.1
 -include build/makelib/k8s_tools.mk
 
