@@ -120,7 +120,7 @@ configurable using `DeploymentRuntimeConfig`.
 ## Known limitations:
 
 * You must either use remote state or ensure the provider container's `/tf`
-  directory is not lost. `provider-opentofy` __does not persist state__;
+  directory is not lost. `provider-opentofu` __does not persist state__;
   consider using the [Kubernetes](https://opentofu.org/docs/language/settings/backends/kubernetes/) remote state backend.
 * If the module takes longer than the value of `--timeout` (default is 20m) to apply the
   underlying `tofu` process will be killed. You will potentially lose state
