@@ -1,8 +1,6 @@
 apiVersion: opentofu.upbound.io/v1beta1
 kind: Workspace
 metadata:
-  annotations:
-    uptest.upbound.io/disable-import: "true"
   name: sample-inline
 spec:
   providerConfigRef:
