@@ -13,6 +13,6 @@ kind: Provider
 metadata:
   name: crossplane-provider-opentofu
 spec:
-  package: xpkg.upbound.io/upbound/provider-opentofu:v0.2.0
+  package: xpkg.upbound.io/upboundcare/provider-opentofu:v0.2.0
   controllerConfigRef:
     name: opentofu-config

@@ -18,7 +18,7 @@ permissions:
 env:
   SUPPORTED_RELEASES_NUMBER: '1'
   # comma separated list of images, without tag
-  IMAGES: "xpkg.upbound.io/upbound/provider-opentofu"
+  IMAGES: "xpkg.upbound.io/upboundcare/provider-opentofu"
 
 jobs:
   setup-vars:
