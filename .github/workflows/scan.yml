@@ -48,3 +48,5 @@ jobs:
       supported_releases: ${{ fromJSON(needs.setup-vars.outputs.supported_releases_number) }}
     secrets:
       TOKEN: ${{ secrets.UPBOUND_GITHUB_BOT_TOKEN }}
+      DOCKER_USR: ${{ secrets.UPBOUND_MARKETPLACE_PUSH_ROBOT_USR }}
+      DOCKER_PSW: ${{ secrets.UPBOUND_MARKETPLACE_PUSH_ROBOT_PSW }}
