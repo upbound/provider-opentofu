@@ -29,7 +29,7 @@ Verify the version of `up` with `up --version`
 
 ```shell
 $ up version
-v0.13.0
+v0.35.0
 ```
 
 ## Install Universal Crossplane
@@ -37,18 +37,16 @@ Install Upbound Universal Crossplane with the Up command-line.
 
 ```shell
 $ up uxp install
-UXP 1.10.1-up.1 installed
+UXP 1.18.0-up.1 installed
 ```
 
 Verify the UXP pods are running with `kubectl get pods -n upbound-system`
 
 ```shell
 $ kubectl get pods -n upbound-system
-NAME                                       READY   STATUS    RESTARTS      AGE
-crossplane-ddc974f67-kp6t2                 1/1     Running   0             93s
-crossplane-rbac-manager-7978c5f8df-8w8sg   1/1     Running   0             93s
-upbound-bootstrapper-754f65bd-h92tm        1/1     Running   0             93s
-xgql-8fb949dcf-pxn4z                       1/1     Running   3 (52s ago)   93s
+NAME                                       READY   STATUS    RESTARTS   AGE
+crossplane-649f76c8db-g29b2                1/1     Running   0          48s
+crossplane-rbac-manager-645fdf89d6-t7mhh   1/1     Running   0          48s
 ```
 
 ## Install the OpenTofu provider
@@ -110,15 +108,15 @@ Save this JSON file as `gcp-credentials.json`.
 Use the following command to create the Kubernetes secret object in the cluster.
 
 ```
-kubectl create secret generic tf-gcp-creds -n upbound-system \
+kubectl create secret generic opentofu-gcp-creds -n upbound-system \
   --from-file=credentials=./gcp-credentials.json
 ```
 
-View the secret with `kubectl describe secret tf-gcp-creds -n upbound-system`
+View the secret with `kubectl describe secret opentofu-gcp-creds -n upbound-system`
 
 ```shell
 $ kubectl describe secret gcp-creds -n upbound-system
-Name:         tf-gcp-creds
+Name:         opentofu-gcp-creds
 Namespace:    upbound-system
 Labels:       <none>
 Annotations:  <none>
@@ -153,7 +151,7 @@ spec:
       source: Secret
       secretRef:
         namespace: upbound-system
-        name: tf-gcp-creds
+        name: opentofu-gcp-creds
         key: credentials
   # This optional configuration block can be used to inject HCL into any
   # workspace that uses this provider config, for example to setup Terraform

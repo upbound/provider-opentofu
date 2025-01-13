@@ -367,7 +367,7 @@ kind: Workspace
 metadata:
   name: example-random-generator
   annotations:
-    meta.upbound.io/example-id: tf/v1beta1/workspace
+    meta.upbound.io/example-id: opentofu/v1beta1/workspace
     crossplane.io/external-name: random
 spec:
   forProvider:
