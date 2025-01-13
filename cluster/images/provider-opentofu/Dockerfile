@@ -1,9 +1,9 @@
-FROM alpine:3.20.3
+FROM alpine:3.21.2
 RUN apk --no-cache add ca-certificates bash git curl
 ARG TARGETOS
 ARG TARGETARCH
 
-ENV OPENTOFU_VERSION=1.8.2
+ENV OPENTOFU_VERSION=1.9.0
 ENV TF_IN_AUTOMATION=1
 ENV TOFU_PLUGIN_CACHE_DIR=/tofu/plugin-cache
 
