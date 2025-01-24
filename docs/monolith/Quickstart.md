@@ -60,7 +60,7 @@ kind: Provider
 metadata:
   name: provider-opentofu
 spec:
-  package: xpkg.upbound.io/upboundcare/provider-opentofu:<version>
+  package: xpkg.upbound.io/upbound/provider-opentofu:<version>
 ```
 
 Apply this configuration with `kubectl apply -f`.
@@ -70,7 +70,7 @@ After installing the provider, verify the install with `kubectl get providers`.
 ```shell
 $ kubectl get providers
 NAME                 INSTALLED   HEALTHY   PACKAGE                                             AGE
-provider-opentofu   True        True      xpkg.upbound.io/upboundcare/provider-opentofu:v0.1.0   15s
+provider-opentofu   True        True      xpkg.upbound.io/upbound/provider-opentofu:v0.1.0   15s
 ```
 
 It may take up to 5 minutes to report `HEALTHY`.
