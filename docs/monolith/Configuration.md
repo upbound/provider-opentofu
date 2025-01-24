@@ -66,7 +66,7 @@ kind: Provider
 metadata:
   name: provider-opentofu
 spec:
-  package: xpkg.upbound.io/upboundcare/provider-opentofu:<version>
+  package: xpkg.upbound.io/upbound/provider-opentofu:<version>
   controllerConfigRef:
     name: opentofu
 ```
