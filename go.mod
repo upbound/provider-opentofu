@@ -1,6 +1,6 @@
 module github.com/upbound/provider-opentofu
 
-go 1.23.3
+go 1.23.6
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
