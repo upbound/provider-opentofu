@@ -177,14 +177,14 @@ func (h Harness) Init(ctx context.Context, o ...InitOption) error {
 	cmd := exec.Command(h.Path, args...) //nolint:gosec
 	cmd.Dir = h.Dir
 	for _, e := range os.Environ() {
-		if strings.Contains(e, "TOFU_PLUGIN_CACHE_DIR") {
+		if strings.Contains(e, "TF_PLUGIN_CACHE_DIR") {
 			if !h.UsePluginCache {
 				continue
 			}
 		}
 		cmd.Env = append(cmd.Env, e)
 	}
-	cmd.Env = append(cmd.Env, "TOFU_CLI_CONFIG_FILE=./.tofurc")
+	cmd.Env = append(cmd.Env, "TF_CLI_CONFIG_FILE=./.tofurc")
 	if len(h.Envs) > 0 {
 		cmd.Env = append(cmd.Env, h.Envs...)
 	}
