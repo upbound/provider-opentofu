@@ -10,6 +10,7 @@ PLATFORMS ?= linux_amd64 linux_arm64
 -include build/makelib/output.mk
 
 # Setup Go
+GO_REQUIRED_VERSION ?= 1.23.7
 NPROCS ?= 1
 # GOLANGCILINT_VERSION is inherited from build submodule by default.
 # Uncomment below if you need to override the version.
@@ -26,14 +27,14 @@ GO111MODULE = on
 
 # Uncomment below to override the versions from the build module
 # KIND_VERSION = v0.15.0
-UP_VERSION = v0.33.0
-# UP_CHANNEL = stable
+UP_VERSION = v0.38.0
+UP_CHANNEL = stable
 UPTEST_VERSION = v1.1.2
 CROSSPLANE_VERSION = 1.17.1
 -include build/makelib/k8s_tools.mk
 
 # Setup Images
-REGISTRY_ORGS ?= xpkg.upbound.io/upboundcare
+REGISTRY_ORGS ?= xpkg.upbound.io/upbound
 IMAGES = provider-opentofu
 -include build/makelib/imagelight.mk
 
@@ -59,10 +60,10 @@ submodules:
 # ====================================================================================
 # Setup XPKG
 
-XPKG_REG_ORGS ?= xpkg.upbound.io/upboundcare
+XPKG_REG_ORGS ?= xpkg.upbound.io/upbound
 # NOTE(hasheddan): skip promoting on xpkg.upbound.io as channel tags are
 # inferred.
-XPKG_REG_ORGS_NO_PROMOTE ?= xpkg.upbound.io/upboundcare
+XPKG_REG_ORGS_NO_PROMOTE ?= xpkg.upbound.io/upbound
 XPKGS = provider-opentofu
 -include build/makelib/xpkg.mk
 
