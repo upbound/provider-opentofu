@@ -13,7 +13,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  GO_VERSION: "1.22"
+  GO_VERSION: "1.23.7"
 
 jobs:
   detect-noop:
@@ -81,7 +81,7 @@ jobs:
           echo "analysis_cache_key_int=$(make go.lint.analysiskey-interval)" >> $GITHUB_OUTPUT
 
       - name: Cache Linter Analysis
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         id: cache-analysis
         with:
           path: ${{ steps.analysis_cache.outputs.analysis_cache }}
@@ -94,7 +94,7 @@ jobs:
 
       - name: Lint
         env:
-          GOLANGCI_LINT_CACHE: ${{ steps.go_cache.outputs.analysis_cache }}
+          GOLANGCI_LINT_CACHE: ${{ steps.analysis_cache.outputs.analysis_cache }}
           SKIP_LINTER_ANALYSIS: false
           RUN_BUILDTAGGER: true
           GOGC: "50"
