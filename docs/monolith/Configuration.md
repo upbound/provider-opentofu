@@ -259,10 +259,9 @@ module "relative-path-iam" {
 }
 ```
 
-## Provider Plugin Cache(enabled by default)
+## Provider Plugin Cache (enabled by default)
 
-[Provider Plugin
-Cache](https://opentofu.org/docs/cli/config/config-file/#provider-plugin-cache)
+[Provider Plugin Cache](https://opentofu.org/docs/cli/config/config-file/#provider-plugin-cache)
 is enabled by default to speed up reconciliation.
 
 In case you need to disable it, set optional `pluginCache` to `false` in
@@ -277,6 +276,10 @@ spec:
   pluginCache: false
 ...
 ```
+
+Please note that disabling the plugin cache feature increases memory consumption significantly.
+When disabled, a new set of providers is pulled for each workspace resource.
+This then causes provider-opentofu to keep all of the providers in memory during reconciliation. 
 
 ## Enable External Secret Support
 
