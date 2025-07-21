@@ -3,7 +3,7 @@ RUN apk --no-cache add ca-certificates bash git curl
 ARG TARGETOS
 ARG TARGETARCH
 
-ENV OPENTOFU_VERSION=1.9.0
+ENV OPENTOFU_VERSION=1.10.0
 ENV TF_IN_AUTOMATION=1
 ENV TF_PLUGIN_CACHE_DIR=/tofu/plugin-cache
 
