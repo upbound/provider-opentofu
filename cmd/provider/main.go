@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -36,9 +37,17 @@ import (
 
 	"github.com/upbound/provider-opentofu/apis"
 	"github.com/upbound/provider-opentofu/apis/v1beta1"
+	"github.com/upbound/provider-opentofu/internal/bootcheck"
 	workspace "github.com/upbound/provider-opentofu/internal/controller"
 	"github.com/upbound/provider-opentofu/internal/controller/features"
 )
+
+func init() {
+	err := bootcheck.CheckEnv()
+	if err != nil {
+		log.Fatalf("bootcheck failed. provider will not be started: %v", err)
+	}
+}
 
 func main() {
 	var (
