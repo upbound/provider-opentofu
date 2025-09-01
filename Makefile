@@ -26,7 +26,7 @@ GO111MODULE = on
 # Setup Kubernetes tools
 
 # Uncomment below to override the versions from the build module
-# KIND_VERSION = v0.15.0
+# KIND_VERSION = v0.30.0
 UP_VERSION = v0.38.0
 UP_CHANNEL = stable
 UPTEST_VERSION = v1.1.2
