@@ -1,4 +1,4 @@
-apiVersion: opentofu.mupbound.io/v1beta1
+apiVersion: opentofu.m.upbound.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: default
