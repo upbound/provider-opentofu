@@ -92,13 +92,9 @@ spec:
                             name:
                               description: Name of the referenced resource.
                               type: string
-                            namespace:
-                              description: Namespace of the referenced resource.
-                              type: string
                           required:
                           - key
                           - name
-                          - namespace
                           type: object
                         name:
                           type: string
@@ -112,13 +108,9 @@ spec:
                             name:
                               description: Name of the referenced resource.
                               type: string
-                            namespace:
-                              description: Namespace of the referenced resource.
-                              type: string
                           required:
                           - key
                           - name
-                          - namespace
                           type: object
                         value:
                           type: string
@@ -174,13 +166,9 @@ spec:
                             name:
                               description: Name of the referenced resource.
                               type: string
-                            namespace:
-                              description: Namespace of the referenced resource.
-                              type: string
                           required:
                           - key
                           - name
-                          - namespace
                           type: object
                         format:
                           default: HCL
@@ -198,13 +186,9 @@ spec:
                             name:
                               description: Name of the referenced resource.
                               type: string
-                            namespace:
-                              description: Namespace of the referenced resource.
-                              type: string
                           required:
                           - key
                           - name
-                          - namespace
                           type: object
                         source:
                           description: Source of this vars file.

@@ -19,7 +19,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
-	"github.com/upbound/provider-opentofu/internal/clients"
 	corev1 "k8s.io/api/core/v1"
 	extensionsV1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +36,7 @@ import (
 	"github.com/hashicorp/go-getter"
 
 	"github.com/upbound/provider-opentofu/apis/namespaced/v1beta1"
+	"github.com/upbound/provider-opentofu/internal/clients"
 	"github.com/upbound/provider-opentofu/internal/features"
 	"github.com/upbound/provider-opentofu/internal/opentofu"
 	"github.com/upbound/provider-opentofu/internal/workdir"
@@ -290,24 +290,24 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 			case env.ConfigMapKeyReference != nil:
 				cm := &corev1.ConfigMap{}
 				r := env.ConfigMapKeyReference
-				nn := types.NamespacedName{Namespace: r.Namespace, Name: r.Name}
+				nn := types.NamespacedName{Namespace: mg.GetNamespace(), Name: r.Name}
 				if err := c.kube.Get(ctx, nn, cm); err != nil {
 					return nil, errors.Wrap(err, errVarResolution)
 				}
 				runtimeVal, ok = cm.Data[r.Key]
 				if !ok {
-					return nil, errors.Wrap(fmt.Errorf("couldn't find key %v in ConfigMap %v/%v", r.Key, r.Namespace, r.Name), errVarResolution)
+					return nil, errors.Wrap(fmt.Errorf("couldn't find key %v in ConfigMap %v/%v", r.Key, mg.GetNamespace(), r.Name), errVarResolution)
 				}
 			case env.SecretKeyReference != nil:
 				s := &corev1.Secret{}
 				r := env.SecretKeyReference
-				nn := types.NamespacedName{Namespace: r.Namespace, Name: r.Name}
+				nn := types.NamespacedName{Namespace: mg.GetNamespace(), Name: r.Name}
 				if err := c.kube.Get(ctx, nn, s); err != nil {
 					return nil, errors.Wrap(err, errVarResolution)
 				}
 				secretBytes, ok := s.Data[r.Key]
 				if !ok {
-					return nil, errors.Wrap(fmt.Errorf("couldn't find key %v in Secret %v/%v", r.Key, r.Namespace, r.Name), errVarResolution)
+					return nil, errors.Wrap(fmt.Errorf("couldn't find key %v in Secret %v/%v", r.Key, mg.GetNamespace(), r.Name), errVarResolution)
 				}
 				runtimeVal = string(secretBytes)
 			}
@@ -346,7 +346,7 @@ type external struct {
 }
 
 func (c *external) checkDiff(ctx context.Context, cr *v1beta1.Workspace) (bool, error) {
-	o, err := c.options(ctx, cr.Spec.ForProvider)
+	o, err := c.options(ctx, cr.Spec.ForProvider, cr.GetNamespace())
 	if err != nil {
 		return false, errors.Wrap(err, errOptions)
 	}
@@ -424,7 +424,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.New(errNotWorkspace)
 	}
 
-	o, err := c.options(ctx, cr.Spec.ForProvider)
+	o, err := c.options(ctx, cr.Spec.ForProvider, mg.GetNamespace())
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errOptions)
 	}
@@ -455,7 +455,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalDelete{}, errors.New(errNotWorkspace)
 	}
 
-	o, err := c.options(ctx, cr.Spec.ForProvider)
+	o, err := c.options(ctx, cr.Spec.ForProvider, mg.GetNamespace())
 	if err != nil {
 		return managed.ExternalDelete{}, errors.Wrap(err, errOptions)
 	}
@@ -469,7 +469,7 @@ func (c *external) Disconnect(ctx context.Context) error {
 }
 
 //nolint:gocyclo
-func (c *external) options(ctx context.Context, p v1beta1.WorkspaceParameters) ([]opentofu.Option, error) {
+func (c *external) options(ctx context.Context, p v1beta1.WorkspaceParameters, namespace string) ([]opentofu.Option, error) {
 	o := make([]opentofu.Option, 0, len(p.Vars)+len(p.VarFiles)+len(p.DestroyArgs)+len(p.ApplyArgs)+len(p.PlanArgs))
 
 	for _, v := range p.Vars {
@@ -486,7 +486,7 @@ func (c *external) options(ctx context.Context, p v1beta1.WorkspaceParameters) (
 		case v1beta1.VarFileSourceConfigMapKey:
 			cm := &corev1.ConfigMap{}
 			r := vf.ConfigMapKeyReference
-			nn := types.NamespacedName{Namespace: r.Namespace, Name: r.Name}
+			nn := types.NamespacedName{Namespace: namespace, Name: r.Name}
 			if err := c.kube.Get(ctx, nn, cm); err != nil {
 				return nil, errors.Wrap(err, errVarFile)
 			}
@@ -495,7 +495,7 @@ func (c *external) options(ctx context.Context, p v1beta1.WorkspaceParameters) (
 		case v1beta1.VarFileSourceSecretKey:
 			s := &corev1.Secret{}
 			r := vf.SecretKeyReference
-			nn := types.NamespacedName{Namespace: r.Namespace, Name: r.Name}
+			nn := types.NamespacedName{Namespace: namespace, Name: r.Name}
 			if err := c.kube.Get(ctx, nn, s); err != nil {
 				return nil, errors.Wrap(err, errVarFile)
 			}

@@ -19,7 +19,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
-	"github.com/upbound/provider-opentofu/internal/clients"
 	corev1 "k8s.io/api/core/v1"
 	extensionsV1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +36,7 @@ import (
 	"github.com/hashicorp/go-getter"
 
 	"github.com/upbound/provider-opentofu/apis/cluster/v1beta1"
+	"github.com/upbound/provider-opentofu/internal/clients"
 	"github.com/upbound/provider-opentofu/internal/features"
 	"github.com/upbound/provider-opentofu/internal/opentofu"
 	"github.com/upbound/provider-opentofu/internal/workdir"

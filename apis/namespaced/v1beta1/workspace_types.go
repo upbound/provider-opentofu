@@ -73,8 +73,6 @@ type EnvVar struct {
 
 // A KeyReference references a key within a Secret or a ConfigMap.
 type KeyReference struct {
-	// Namespace of the referenced resource.
-	Namespace string `json:"namespace"`
 
 	// Name of the referenced resource.
 	Name string `json:"name"`

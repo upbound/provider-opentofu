@@ -16,7 +16,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
-	"github.com/upbound/provider-opentofu/internal/clients"
 	corev1 "k8s.io/api/core/v1"
 	extensionsV1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +29,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
 	"github.com/upbound/provider-opentofu/apis/cluster/v1beta1"
+	"github.com/upbound/provider-opentofu/internal/clients"
 	"github.com/upbound/provider-opentofu/internal/opentofu"
 )
 
