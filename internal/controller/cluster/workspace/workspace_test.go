@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
+	"github.com/upbound/provider-opentofu/internal/clients"
 	corev1 "k8s.io/api/core/v1"
 	extensionsV1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +34,8 @@ import (
 )
 
 const (
-	tfChecksum = "checksum"
+	tfChecksum              = "checksum"
+	errProviderConfigNotSet = "provider config is not set"
 )
 
 type ErrFs struct {
@@ -107,12 +109,13 @@ func (tf *MockTofu) DeleteCurrentWorkspace(ctx context.Context) error {
 
 func TestConnect(t *testing.T) {
 	errBoom := errors.New("boom")
+	errNoProviderConfig := errors.New(errProviderConfigNotSet)
 	uid := types.UID("no-you-id")
 	tfCreds := "credentials"
 
 	type fields struct {
 		kube  client.Client
-		usage resource.Tracker
+		usage clients.LegacyTracker
 		fs    afero.Afero
 		tofu  func(dir string, usePluginCache bool, enableTofuCLILogging bool, logger logging.Logger, envs ...string) tofuclient
 	}
@@ -156,7 +159,7 @@ func TestConnect(t *testing.T) {
 		"TrackUsageError": {
 			reason: "We should return any error encountered while tracking ProviderConfig usage",
 			fields: fields{
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return errBoom }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return errBoom }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 			},
 			args: args{
@@ -164,7 +167,7 @@ func TestConnect(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 				},
 			},
-			want: errors.Wrap(errBoom, errTrackPCUsage),
+			want: errors.Wrap(errNoProviderConfig, "failed to resolve provider config"),
 		},
 		"GetProviderConfigError": {
 			reason: "We should return any error encountered while getting our ProviderConfig",
@@ -172,7 +175,7 @@ func TestConnect(t *testing.T) {
 				kube: &test.MockClient{
 					MockGet: test.NewMockGetFn(errBoom),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 			},
 			args: args{
@@ -185,7 +188,7 @@ func TestConnect(t *testing.T) {
 					},
 				},
 			},
-			want: errors.Wrap(errBoom, errGetPC),
+			want: errors.Wrap(errors.Wrap(errBoom, "cannot get provider config"), "failed to resolve provider config"),
 		},
 		"GetProviderConfigCredentialsError": {
 			reason: "We should return any error encountered while getting our ProviderConfig credentials",
@@ -204,7 +207,7 @@ func TestConnect(t *testing.T) {
 						return nil
 					}),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 				tofu: func(_ string, _ bool, _ bool, _ logging.Logger, _ ...string) tofuclient {
 					return &MockTofu{
@@ -238,7 +241,7 @@ func TestConnect(t *testing.T) {
 						return nil
 					}),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs: afero.Afero{
 					Fs: &ErrFs{
 						Fs:   afero.NewMemMapFs(),
@@ -277,7 +280,7 @@ func TestConnect(t *testing.T) {
 						return nil
 					}),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs: afero.Afero{
 					Fs: &ErrFs{
 						Fs:   afero.NewMemMapFs(),
@@ -321,7 +324,7 @@ func TestConnect(t *testing.T) {
 						return nil
 					}),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs: afero.Afero{
 					Fs: &ErrFs{
 						Fs:   afero.NewMemMapFs(),
@@ -364,7 +367,7 @@ func TestConnect(t *testing.T) {
 						return nil
 					}),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs: afero.Afero{
 					Fs: &ErrFs{
 						Fs:   afero.NewMemMapFs(),
@@ -405,7 +408,7 @@ func TestConnect(t *testing.T) {
 						return nil
 					}),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs: afero.Afero{
 					Fs: &ErrFs{
 						Fs:   afero.NewMemMapFs(),
@@ -446,7 +449,7 @@ func TestConnect(t *testing.T) {
 						return nil
 					}),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs: afero.Afero{
 					Fs: &ErrFs{
 						Fs:   afero.NewMemMapFs(),
@@ -482,7 +485,7 @@ func TestConnect(t *testing.T) {
 				kube: &test.MockClient{
 					MockGet: test.NewMockGetFn(nil),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs: afero.Afero{
 					Fs: &ErrFs{
 						Fs:   afero.NewMemMapFs(),
@@ -517,7 +520,7 @@ func TestConnect(t *testing.T) {
 				kube: &test.MockClient{
 					MockGet: test.NewMockGetFn(nil),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs: afero.Afero{
 					Fs: &ErrFs{
 						Fs:   afero.NewMemMapFs(),
@@ -553,7 +556,7 @@ func TestConnect(t *testing.T) {
 				kube: &test.MockClient{
 					MockGet: test.NewMockGetFn(nil),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 				tofu: func(_ string, _ bool, _ bool, _ logging.Logger, _ ...string) tofuclient {
 					return &MockTofu{MockInit: func(_ context.Context, _ ...opentofu.InitOption) error { return errBoom }}
@@ -577,7 +580,7 @@ func TestConnect(t *testing.T) {
 				kube: &test.MockClient{
 					MockGet: test.NewMockGetFn(nil),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 				tofu: func(_ string, _ bool, _ bool, _ logging.Logger, _ ...string) tofuclient {
 					return &MockTofu{
@@ -603,7 +606,7 @@ func TestConnect(t *testing.T) {
 			fields: fields{kube: &test.MockClient{
 				MockGet: test.NewMockGetFn(nil),
 			},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 				tofu: func(_ string, _ bool, _ bool, _ logging.Logger, _ ...string) tofuclient {
 					return &MockTofu{
@@ -637,7 +640,7 @@ func TestConnect(t *testing.T) {
 			fields: fields{kube: &test.MockClient{
 				MockGet: test.NewMockGetFn(nil),
 			},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 				tofu: func(_ string, _ bool, _ bool, _ logging.Logger, _ ...string) tofuclient {
 					return &MockTofu{
@@ -673,7 +676,7 @@ func TestConnect(t *testing.T) {
 				kube: &test.MockClient{
 					MockGet: test.NewMockGetFn(nil),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 				tofu: func(_ string, _ bool, _ bool, _ logging.Logger, _ ...string) tofuclient {
 					return &MockTofu{
@@ -712,7 +715,7 @@ func TestConnect(t *testing.T) {
 						return nil
 					}),
 				},
-				usage: resource.TrackerFn(func(_ context.Context, _ resource.Managed) error { return nil }),
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
 				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
 				tofu: func(_ string, _ bool, _ bool, _ logging.Logger, _ ...string) tofuclient {
 					return &MockTofu{
@@ -882,7 +885,7 @@ func TestObserve(t *testing.T) {
 				},
 			},
 			want: want{
-				err: errors.Wrap(errors.Wrap(errors.New("json: error calling MarshalJSON for type *runtime.RawExtension: invalid character 'I' looking for beginning of value"), errVarMap), errOptions),
+				err: errors.Wrap(errors.Wrap(errors.New("json: error calling MarshalJSON for type *runtime.RawExtension: cannot convert RawExtension with unrecognized content type to unstructured"), errVarMap), errOptions),
 			},
 		},
 		"DiffError": {
@@ -1261,7 +1264,7 @@ func TestCreate(t *testing.T) {
 				},
 			},
 			want: want{
-				err: errors.Wrap(errors.Wrap(errors.New("json: error calling MarshalJSON for type *runtime.RawExtension: invalid character 'I' looking for beginning of value"), errVarMap), errOptions),
+				err: errors.Wrap(errors.Wrap(errors.New("json: error calling MarshalJSON for type *runtime.RawExtension: cannot convert RawExtension with unrecognized content type to unstructured"), errVarMap), errOptions),
 			},
 		},
 		"ApplyError": {
@@ -1471,7 +1474,7 @@ func TestDelete(t *testing.T) {
 					},
 				},
 			},
-			want: errors.Wrap(errors.Wrap(errors.New("json: error calling MarshalJSON for type *runtime.RawExtension: invalid character 'I' looking for beginning of value"), errVarMap), errOptions),
+			want: errors.Wrap(errors.Wrap(errors.New("json: error calling MarshalJSON for type *runtime.RawExtension: cannot convert RawExtension with unrecognized content type to unstructured"), errVarMap), errOptions),
 		},
 		"DestroyError": {
 			reason: "We should return any error we encounter destroying our tofu configuration",
@@ -1523,7 +1526,7 @@ func TestDelete(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			e := external{tofu: tc.fields.tofu, kube: tc.fields.kube, logger: logging.NewNopLogger()}
-			err := e.Delete(tc.args.ctx, tc.args.mg)
+			_, err := e.Delete(tc.args.ctx, tc.args.mg)
 			if diff := cmp.Diff(tc.want, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\ne.Delete(...): -want error, +got error:\n%s\n", tc.reason, diff)
 			}
