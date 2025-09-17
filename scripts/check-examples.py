@@ -26,7 +26,8 @@ def load_crd_type(t):
 
 exception_set = {
     'ProviderConfigUsage.opentofu.upbound.io/v1beta1',
-    'StoreConfig.opentofu.upbound.io/v1beta1'
+    'StoreConfig.opentofu.upbound.io/v1beta1',
+    'ProviderConfigUsage.opentofu.m.upbound.io/v1beta1'
 }
 
 # Example usage: check-examples.py <CRD dir> <example manifests dir>

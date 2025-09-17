@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: providerconfigs.opentofu.upbound.io
+  name: clusterproviderconfigs.opentofu.m.upbound.io
 spec:
-  group: opentofu.upbound.io
+  group: opentofu.m.upbound.io
   names:
     categories:
     - crossplane
     - provider
     - opentofu
-    kind: ProviderConfig
-    listKind: ProviderConfigList
-    plural: providerconfigs
-    singular: providerconfig
+    kind: ClusterProviderConfig
+    listKind: ClusterProviderConfigList
+    plural: clusterproviderconfigs
+    singular: clusterproviderconfig
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -29,7 +29,7 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A ProviderConfig configures the OpenTofu provider.
+        description: A ClusterProviderConfig configures a Opentofu provider.
         properties:
           apiVersion:
             description: |-
