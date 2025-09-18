@@ -20,9 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/crossplane/crossplane-runtime/pkg/test"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
-	"github.com/upbound/provider-opentofu/apis/v1beta1"
+	"github.com/upbound/provider-opentofu/apis/cluster/v1beta1"
 )
 
 func withDirs(fs afero.Afero, dir ...string) afero.Afero {
@@ -116,7 +116,7 @@ func TestCollect(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			gc := NewGarbageCollector(tc.fields.kube, tc.fields.parentdDir, WithFs(tc.fields.fs))
-			err := gc.collect(tc.args.ctx)
+			err := gc.collect(tc.args.ctx, false)
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("gc.collect(...): -want error, +got error:\n%s", diff)
 			}

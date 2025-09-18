@@ -10,27 +10,24 @@ PLATFORMS ?= linux_amd64 linux_arm64
 -include build/makelib/output.mk
 
 # Setup Go
-GO_REQUIRED_VERSION ?= 1.23.7
+GO_REQUIRED_VERSION ?= 1.24
 NPROCS ?= 1
-# GOLANGCILINT_VERSION is inherited from build submodule by default.
-# Uncomment below if you need to override the version.
-# GOLANGCILINT_VERSION ?= 1.50.0
+GOLANGCILINT_VERSION = 2.1.2
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
 GO_LDFLAGS += -X $(GO_PROJECT)/pkg/version.Version=$(VERSION)
-GO_SUBDIRS += cmd internal apis
+GO_SUBDIRS += cmd internal apis generate
 GO111MODULE = on
 -include build/makelib/golang.mk
 
 # ====================================================================================
 # Setup Kubernetes tools
 
-# Uncomment below to override the versions from the build module
-# KIND_VERSION = v0.30.0
-UP_VERSION = v0.38.0
+KIND_VERSION = v0.30.0
+UP_VERSION = v0.41.0
 UP_CHANNEL = stable
 UPTEST_VERSION = v1.1.2
-CROSSPLANE_VERSION = 1.17.1
+CROSSPLANE_VERSION = 1.20.0
 -include build/makelib/k8s_tools.mk
 
 # Setup Images
