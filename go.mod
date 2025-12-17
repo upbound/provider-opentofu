@@ -2,7 +2,7 @@ module github.com/upbound/provider-opentofu
 
 tool golang.org/x/tools/cmd/goimports
 
-go 1.24.10
+go 1.24.11
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
