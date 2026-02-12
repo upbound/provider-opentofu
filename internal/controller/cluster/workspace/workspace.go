@@ -88,7 +88,7 @@ func envVarFallback(envvar string, fallback string) string {
 	return fallback
 }
 
-var tfDir = envVarFallback("XP_TF_DIR", "/tofu")
+var tfDir = filepath.Join(envVarFallback("XP_TF_DIR", "/tofu"), "cluster")
 
 type tofuclient interface {
 	Init(ctx context.Context, o ...opentofu.InitOption) error

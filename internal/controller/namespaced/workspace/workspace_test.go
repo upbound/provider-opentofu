@@ -868,7 +868,7 @@ func TestConnect(t *testing.T) {
 							args := opentofu.InitArgsToString(o)
 							if len(args) != 2 {
 								return errors.New("two init args are expected")
-							} else if args[0] != "-backend-config=/tofu/no-you-id/crossplane.remote.tfbackend" {
+							} else if args[0] != "-backend-config=/tofu/namespaced/no-you-id/crossplane.remote.tfbackend" {
 								return errors.Errorf("backend config arg has invalid value: %s", args[0])
 							}
 							return nil
