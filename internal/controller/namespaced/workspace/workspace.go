@@ -39,7 +39,6 @@ import (
 	"github.com/upbound/provider-opentofu/internal/clients"
 	"github.com/upbound/provider-opentofu/internal/features"
 	"github.com/upbound/provider-opentofu/internal/opentofu"
-	"github.com/upbound/provider-opentofu/internal/workdir"
 )
 
 const (
@@ -90,6 +89,11 @@ func envVarFallback(envvar string, fallback string) string {
 
 var tfDir = envVarFallback("XP_TF_DIR", "/tofu")
 
+// GetTfDir returns the OpenTofu working directory root.
+func GetTfDir() string {
+	return tfDir
+}
+
 type tofuclient interface {
 	Init(ctx context.Context, o ...opentofu.InitOption) error
 	Workspace(ctx context.Context, name string) error
@@ -107,12 +111,6 @@ func Setup(mgr ctrl.Manager, o controller.Options, timeout, pollJitter time.Dura
 	name := managed.ControllerName(v1beta1.WorkspaceGroupKind)
 
 	fs := afero.Afero{Fs: afero.NewOsFs()}
-	gcWorkspace := workdir.NewGarbageCollector(mgr.GetClient(), tfDir, workdir.WithFs(fs), workdir.WithLogger(o.Logger))
-	go gcWorkspace.Run(context.TODO(), true)
-
-	gcTmp := workdir.NewGarbageCollector(mgr.GetClient(), filepath.Join("/tmp", tfDir), workdir.WithFs(fs), workdir.WithLogger(o.Logger))
-	go gcTmp.Run(context.TODO(), true)
-
 	c := &connector{
 		kube:   mgr.GetClient(),
 		usage:  resource.NewProviderConfigUsageTracker(mgr.GetClient(), &v1beta1.ProviderConfigUsage{}),

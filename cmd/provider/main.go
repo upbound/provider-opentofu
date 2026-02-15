@@ -41,6 +41,8 @@ import (
 	namespacedapis "github.com/upbound/provider-opentofu/apis/namespaced"
 	"github.com/upbound/provider-opentofu/internal/bootcheck"
 	clustercontroller "github.com/upbound/provider-opentofu/internal/controller/cluster"
+	"github.com/upbound/provider-opentofu/internal/controller/cluster/workspace"
+	"github.com/upbound/provider-opentofu/internal/controller/gc"
 	namespacedcontroller "github.com/upbound/provider-opentofu/internal/controller/namespaced"
 	"github.com/upbound/provider-opentofu/internal/features"
 )
@@ -144,6 +146,9 @@ func main() {
 		log.Info("Beta feature enabled", "flag", features.EnableBetaManagementPolicies)
 	}
 
+	// NOTE: cluster-scoped and namespaced Workspaces share a common
+	// workspace root directory. Update GC setup if they diverge
+	kingpin.FatalIfError(gc.Setup(mgr, workspace.GetTfDir(), log), "cannot setup Workspace garbage collector controller")
 	canSafeStart, err := canWatchCRD(ctx, mgr)
 	kingpin.FatalIfError(err, "SafeStart precheck failed")
 	if canSafeStart {

@@ -16,13 +16,16 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
-	"github.com/upbound/provider-opentofu/apis/cluster/v1beta1"
+	clusterv1beta1 "github.com/upbound/provider-opentofu/apis/cluster/v1beta1"
+	namespacedv1beta1 "github.com/upbound/provider-opentofu/apis/namespaced/v1beta1"
 )
 
 func withDirs(fs afero.Afero, dir ...string) afero.Afero {
@@ -68,7 +71,11 @@ func TestCollect(t *testing.T) {
 		"ErrNoParentDir": {
 			reason: "Garbage collection should fail when the parent directory does not exist.",
 			fields: fields{
-				kube:       &test.MockClient{MockList: test.NewMockListFn(nil)},
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						return nil
+					},
+				},
 				parentdDir: parentDir,
 				fs:         afero.Afero{Fs: afero.NewMemMapFs()},
 			},
@@ -79,7 +86,11 @@ func TestCollect(t *testing.T) {
 		"NoOp": {
 			reason: "Garbage collection should succeed when there are no workspaces or workdirs.",
 			fields: fields{
-				kube:       &test.MockClient{MockList: test.NewMockListFn(nil)},
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						return nil
+					},
+				},
 				parentdDir: parentDir,
 				fs:         withDirs(afero.Afero{Fs: afero.NewMemMapFs()}, parentDir),
 			},
@@ -90,13 +101,21 @@ func TestCollect(t *testing.T) {
 		"Success": {
 			reason: "Workdirs belonging to workspaces that no longer exist should be successfully garbage collected.",
 			fields: fields{
-				kube: &test.MockClient{MockList: test.NewMockListFn(nil, func(obj client.ObjectList) error {
-					*obj.(*v1beta1.WorkspaceList) = v1beta1.WorkspaceList{Items: []v1beta1.Workspace{
-						{ObjectMeta: metav1.ObjectMeta{UID: types.UID("8371dd9e-dd3f-4a42-bd8c-340c4744f6de")}},
-						{ObjectMeta: metav1.ObjectMeta{UID: types.UID("ebaac629-43a3-4b39-8138-d7ac19cafe11")}},
-					}}
-					return nil
-				})},
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						switch v := list.(type) {
+						case *clusterv1beta1.WorkspaceList:
+							*v = clusterv1beta1.WorkspaceList{Items: []clusterv1beta1.Workspace{
+								{ObjectMeta: metav1.ObjectMeta{UID: types.UID("8371dd9e-dd3f-4a42-bd8c-340c4744f6de")}},
+							}}
+						case *namespacedv1beta1.WorkspaceList:
+							*v = namespacedv1beta1.WorkspaceList{Items: []namespacedv1beta1.Workspace{
+								{ObjectMeta: metav1.ObjectMeta{UID: types.UID("ebaac629-43a3-4b39-8138-d7ac19cafe11")}},
+							}}
+						}
+						return nil
+					},
+				},
 				parentdDir: parentDir,
 				fs: withDirs(afero.Afero{Fs: afero.NewMemMapFs()},
 					parentDir,
@@ -111,12 +130,161 @@ func TestCollect(t *testing.T) {
 				dirs: []string{"8371dd9e-dd3f-4a42-bd8c-340c4744f6de", "ebaac629-43a3-4b39-8138-d7ac19cafe11", "helm", "registry.opentofu.io"},
 			},
 		},
+		"ClusterCRDNotFound": {
+			reason: "GC should continue when cluster CRD is not found (404) but namespaced workspaces exist.",
+			fields: fields{
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						switch v := list.(type) {
+						case *clusterv1beta1.WorkspaceList:
+							return apierrors.NewNotFound(schema.GroupResource{Group: "tf.upbound.io", Resource: "workspaces"}, "")
+						case *namespacedv1beta1.WorkspaceList:
+							*v = namespacedv1beta1.WorkspaceList{Items: []namespacedv1beta1.Workspace{
+								{ObjectMeta: metav1.ObjectMeta{UID: types.UID("ebaac629-43a3-4b39-8138-d7ac19cafe11")}},
+							}}
+						}
+						return nil
+					},
+				},
+				parentdDir: parentDir,
+				fs: withDirs(afero.Afero{Fs: afero.NewMemMapFs()},
+					parentDir,
+					filepath.Join(parentDir, "ebaac629-43a3-4b39-8138-d7ac19cafe11"),
+					filepath.Join(parentDir, "0d177133-1a2f-4ce2-93d2-f8212d3344e7"),
+				),
+			},
+			want: want{
+				dirs: []string{"ebaac629-43a3-4b39-8138-d7ac19cafe11"},
+			},
+		},
+		"NamespacedCRDNotFound": {
+			reason: "GC should continue when namespaced CRD is not found (404) but cluster workspaces exist.",
+			fields: fields{
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						switch v := list.(type) {
+						case *clusterv1beta1.WorkspaceList:
+							*v = clusterv1beta1.WorkspaceList{Items: []clusterv1beta1.Workspace{
+								{ObjectMeta: metav1.ObjectMeta{UID: types.UID("8371dd9e-dd3f-4a42-bd8c-340c4744f6de")}},
+							}}
+						case *namespacedv1beta1.WorkspaceList:
+							return apierrors.NewNotFound(schema.GroupResource{Group: "tf.upbound.io", Resource: "workspaces"}, "")
+						}
+						return nil
+					},
+				},
+				parentdDir: parentDir,
+				fs: withDirs(afero.Afero{Fs: afero.NewMemMapFs()},
+					parentDir,
+					filepath.Join(parentDir, "8371dd9e-dd3f-4a42-bd8c-340c4744f6de"),
+					filepath.Join(parentDir, "0d177133-1a2f-4ce2-93d2-f8212d3344e7"),
+				),
+			},
+			want: want{
+				dirs: []string{"8371dd9e-dd3f-4a42-bd8c-340c4744f6de"},
+			},
+		},
+		"BothCRDsNotFound": {
+			reason: "GC should skip cleanup when both CRDs are not found (404).",
+			fields: fields{
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						return apierrors.NewNotFound(schema.GroupResource{Group: "tf.upbound.io", Resource: "workspaces"}, "")
+					},
+				},
+				parentdDir: parentDir,
+				fs: withDirs(afero.Afero{Fs: afero.NewMemMapFs()},
+					parentDir,
+					filepath.Join(parentDir, "0d177133-1a2f-4ce2-93d2-f8212d3344e7"),
+					filepath.Join(parentDir, "8371dd9e-dd3f-4a42-bd8c-340c4744f6de"),
+				),
+			},
+			want: want{
+				dirs: []string{"0d177133-1a2f-4ce2-93d2-f8212d3344e7", "8371dd9e-dd3f-4a42-bd8c-340c4744f6de"},
+				err:  nil,
+			},
+		},
+		"ClusterForbidden": {
+			reason: "GC should abort when cluster workspace listing is forbidden (403).",
+			fields: fields{
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						switch list.(type) {
+						case *clusterv1beta1.WorkspaceList:
+							return apierrors.NewForbidden(schema.GroupResource{Group: "tf.upbound.io", Resource: "workspaces"}, "", errors.New("forbidden"))
+						case *namespacedv1beta1.WorkspaceList:
+							return nil
+						}
+						return nil
+					},
+				},
+				parentdDir: parentDir,
+				fs: withDirs(afero.Afero{Fs: afero.NewMemMapFs()},
+					parentDir,
+					filepath.Join(parentDir, "8371dd9e-dd3f-4a42-bd8c-340c4744f6de"),
+				),
+			},
+			want: want{
+				dirs: []string{"8371dd9e-dd3f-4a42-bd8c-340c4744f6de"},
+				err:  apierrors.NewForbidden(schema.GroupResource{Group: "tf.upbound.io", Resource: "workspaces"}, "", errors.New("forbidden")),
+			},
+		},
+		"NamespacedForbidden": {
+			reason: "GC should abort when namespaced workspace listing is forbidden (403).",
+			fields: fields{
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						switch list.(type) {
+						case *clusterv1beta1.WorkspaceList:
+							return nil
+						case *namespacedv1beta1.WorkspaceList:
+							return apierrors.NewForbidden(schema.GroupResource{Group: "tf.m.upbound.io", Resource: "workspaces"}, "", errors.New("forbidden"))
+						}
+						return nil
+					},
+				},
+				parentdDir: parentDir,
+				fs: withDirs(afero.Afero{Fs: afero.NewMemMapFs()},
+					parentDir,
+					filepath.Join(parentDir, "8371dd9e-dd3f-4a42-bd8c-340c4744f6de"),
+				),
+			},
+			want: want{
+				dirs: []string{"8371dd9e-dd3f-4a42-bd8c-340c4744f6de"},
+				err:  apierrors.NewForbidden(schema.GroupResource{Group: "tf.m.upbound.io", Resource: "workspaces"}, "", errors.New("forbidden")),
+			},
+		},
+		"OtherAPIError": {
+			reason: "GC should abort on other API errors (e.g., network issues).",
+			fields: fields{
+				kube: &test.MockClient{
+					MockList: func(_ context.Context, list client.ObjectList, _ ...client.ListOption) error {
+						switch list.(type) {
+						case *clusterv1beta1.WorkspaceList:
+							return errors.New("network error")
+						case *namespacedv1beta1.WorkspaceList:
+							return nil
+						}
+						return nil
+					},
+				},
+				parentdDir: parentDir,
+				fs: withDirs(afero.Afero{Fs: afero.NewMemMapFs()},
+					parentDir,
+					filepath.Join(parentDir, "8371dd9e-dd3f-4a42-bd8c-340c4744f6de"),
+				),
+			},
+			want: want{
+				dirs: []string{"8371dd9e-dd3f-4a42-bd8c-340c4744f6de"},
+				err:  errors.New("network error"),
+			},
+		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			gc := NewGarbageCollector(tc.fields.kube, tc.fields.parentdDir, WithFs(tc.fields.fs))
-			err := gc.collect(tc.args.ctx, false)
+			err := gc.collect(tc.args.ctx)
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("gc.collect(...): -want error, +got error:\n%s", diff)
 			}
@@ -127,5 +295,4 @@ func TestCollect(t *testing.T) {
 			}
 		})
 	}
-
 }
