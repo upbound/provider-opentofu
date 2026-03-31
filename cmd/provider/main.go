@@ -49,6 +49,7 @@ import (
 	"github.com/upbound/provider-opentofu/internal/controller/gc"
 	namespacedcontroller "github.com/upbound/provider-opentofu/internal/controller/namespaced"
 	"github.com/upbound/provider-opentofu/internal/features"
+	"github.com/upbound/provider-opentofu/internal/reaper"
 )
 
 func init() {
@@ -79,6 +80,14 @@ func main() {
 	// SetLogger is required starting in controller-runtime 0.15.0.
 	// https://github.com/kubernetes-sigs/controller-runtime/pull/2317
 	ctrl.SetLogger(zl)
+
+	// Start zombie-process reaper. tofu init spawns git subprocesses; when
+	// tofu exits those grandchildren are re-parented to us. Without reaping
+	// they accumulate as <defunct> entries in the process table. The provider
+	// works without it, so a failure to start the reaper is not fatal.
+	if err := reaper.Start(log); err != nil {
+		log.Info("Zombie process reaper is disabled; orphaned child processes will not be reaped", "error", err)
+	}
 
 	log.Debug("Starting",
 		"sync-period", syncInterval.String(),
