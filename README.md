@@ -100,6 +100,21 @@ Follow the quick start guide [here](https://marketplace.upbound.io/providers/upb
 <!-- TODO Update link -->
 You can find a detailed API reference for all the managed resources with examples in the [Upbound Marketplace](https://marketplace.upbound.io/providers/upbound/provider-opentofu/latest/managed-resources).
 
+## Requirements
+
+The provider runs as PID 1 in its container and reaps the zombie processes
+left behind by `tofu` and `git` (for example orphaned `git` subprocesses of
+`tofu init -from-module=<git url>`). To find its child processes it reads
+`/proc/self/task/<tid>/children`, which requires a node kernel built with
+`CONFIG_PROC_CHILDREN`. `CONFIG_CHECKPOINT_RESTORE`, which CRIU and container
+checkpointing need, also enables it. The kernels of all common Kubernetes node
+operating systems enable it, for example Container-Optimized OS, Bottlerocket,
+Azure Linux, Ubuntu, Debian, RHEL and Red Hat Enterprise Linux CoreOS,
+Fedora CoreOS, Flatcar and Talos. If the kernel lacks it, the provider exits at
+startup with an error naming the option. To check a node, run
+`zgrep PROC_CHILDREN /proc/config.gz` or
+`grep PROC_CHILDREN /boot/config-$(uname -r)`.
+
 ## Further Configuration
 
 <!-- TODO Update link -->
