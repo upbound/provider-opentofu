@@ -15,6 +15,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -477,40 +478,49 @@ func checkErr(t *testing.T, reason, op string, want, got error) {
 	}
 }
 
+var md5Sum = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+// TestGenerateChecksum checks the properties the caller actually relies on -
+// that the checksum is well formed, stable for unchanged content, and changes
+// when the workspace does - rather than a hard coded digest. A literal digest
+// would have to be recomputed whenever the test data changes, and says nothing
+// about whether change is detected, which is the only reason the checksum
+// exists: it is what decides whether `tofu init` needs to run again.
 func TestGenerateChecksum(t *testing.T) {
-	type want struct {
-		output string
-		err    error
-	}
-	cases := map[string]struct {
-		reason string
-		module string
-		ctx    context.Context
-		want   want
-	}{
-		"Checksum": {
-			reason: "We should return the checksum for a directory",
-			module: "testdata/outputmodule",
-			ctx:    context.Background(),
-			want: want{
-				output: "d41d8cd98f00b204e9800998ecf8427e",
-			},
-		},
+	ctx := context.Background()
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte("# empty\n"), 0o600); err != nil {
+		t.Fatalf("Cannot write test module: %v", err)
 	}
 
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			// Reading output is a read-only operation, so we operate directly
-			// on our test data instead of creating a temporary directory.
-			tf := Harness{Path: tofuBinaryPath, Dir: tc.module}
-			got, err := tf.GenerateChecksum(tc.ctx)
+	tf := Harness{Path: tofuBinaryPath, Dir: dir}
 
-			if diff := cmp.Diff(tc.want.output, got, cmp.AllowUnexported(Output{})); diff != "" {
-				t.Errorf("\n%s\ntf.GenerateChecksum(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Outputs(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
-		})
+	first, err := tf.GenerateChecksum(ctx)
+	if err != nil {
+		t.Fatalf("tf.GenerateChecksum(...): unexpected error: %v", err)
+	}
+	if !md5Sum.MatchString(first) {
+		t.Fatalf("tf.GenerateChecksum(...): want an md5 sum, got %q", first)
+	}
+
+	again, err := tf.GenerateChecksum(ctx)
+	if err != nil {
+		t.Fatalf("tf.GenerateChecksum(...): unexpected error: %v", err)
+	}
+	if again != first {
+		t.Errorf("The checksum should be stable while the workspace is unchanged: got %q then %q", first, again)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "variables.tf"), []byte("variable \"coolness\" {}\n"), 0o600); err != nil {
+		t.Fatalf("Cannot write test module: %v", err)
+	}
+
+	changed, err := tf.GenerateChecksum(ctx)
+	if err != nil {
+		t.Fatalf("tf.GenerateChecksum(...): unexpected error: %v", err)
+	}
+	if changed == first {
+		t.Errorf("The checksum should change when the workspace does: got %q both before and after adding a file", first)
 	}
 }
