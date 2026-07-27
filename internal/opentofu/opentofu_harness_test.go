@@ -15,6 +15,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -391,7 +392,7 @@ func TestInitDiffApplyDestroy(t *testing.T) {
 				ctx: context.Background(),
 			},
 			want: want{
-				init:  errors.New("module not found"),
+				init:  errors.New("failed to download module"),
 				diff:  errors.New("no configuration files"),
 				apply: errors.New("no configuration files"),
 				// Apparently destroy 'works' in this situation ¯\_(ツ)_/¯
@@ -432,37 +433,47 @@ func TestInitDiffApplyDestroy(t *testing.T) {
 			tf := Harness{Path: tofuBinaryPath, Dir: dir, UsePluginCache: false}
 
 			err = tf.Init(tc.initArgs.ctx, tc.initArgs.o...)
-			if diff := cmp.Diff(tc.want.init, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Init(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Init(...)", tc.want.init, err)
 
 			differs, err := tf.Diff(tc.diffArgs.ctx, tc.diffArgs.o...)
 			t.Logf("Want %t, got %t", tc.want.differsBeforeApply, differs)
-			if diff := cmp.Diff(tc.want.diff, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Diff(...): -want error, +got error (before apply):\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Diff(...) (before apply)", tc.want.diff, err)
 			if diff := cmp.Diff(tc.want.differsBeforeApply, differs); diff != "" {
 				t.Errorf("\n%s\ntf.Diff(...): -want, +got (before apply):\n%s", tc.reason, diff)
 			}
 
 			err = tf.Apply(tc.applyArgs.ctx, tc.applyArgs.o...)
-			if diff := cmp.Diff(tc.want.apply, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Apply(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Apply(...)", tc.want.apply, err)
 
 			differs, err = tf.Diff(tc.diffArgs.ctx, tc.diffArgs.o...)
-			if diff := cmp.Diff(tc.want.diff, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Diff(...): -want error, +got error (after apply):\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Diff(...) (after apply)", tc.want.diff, err)
 			if diff := cmp.Diff(tc.want.differsAfterApply, differs); diff != "" {
 				t.Errorf("\n%s\ntf.Diff(...): -want, +got (after apply):\n%s", tc.reason, diff)
 			}
 
 			err = tf.Destroy(tc.destroyArgs.ctx, tc.destroyArgs.o...)
-			if diff := cmp.Diff(tc.want.destroy, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Destroy(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Destroy(...)", tc.want.destroy, err)
 		})
+	}
+}
+
+// checkErr compares a wanted error against one the harness returned. Errors
+// originating from the tofu binary are wrapped by Classify, which replaces the
+// raw output with a summary line plus a compressed copy of the full output, so
+// an exact comparison would couple these tests to a specific tofu version's
+// wording. The wanted error is therefore matched as a case-insensitive
+// substring: enough to prove the error was classified, loose enough to survive
+// a version bump.
+func checkErr(t *testing.T, reason, op string, want, got error) {
+	t.Helper()
+
+	switch {
+	case want == nil && got != nil:
+		t.Errorf("\n%s\n%s: want no error, got: %v", reason, op, got)
+	case want != nil && got == nil:
+		t.Errorf("\n%s\n%s: want an error containing %q, got none", reason, op, want.Error())
+	case want != nil && !strings.Contains(strings.ToLower(got.Error()), strings.ToLower(want.Error())):
+		t.Errorf("\n%s\n%s: want an error containing %q, got: %v", reason, op, want.Error(), got)
 	}
 }
 
