@@ -47,7 +47,11 @@ RUN set -eu \
   && sha256sum -c expected.sha256 \
   && unzip -o -d /usr/local/bin "${archive}" tofu \
   && chmod +x /usr/local/bin/tofu \
-  && tofu version | head -n1 | grep -qx "OpenTofu v${OPENTOFU_VERSION}" \
+  && installed="$(tofu version)" \
+  && case "${installed}" in \
+       "OpenTofu v${OPENTOFU_VERSION}"*) ;; \
+       *) echo "installed tofu does not match OPENTOFU_VERSION=${OPENTOFU_VERSION}: ${installed}" >&2; exit 1 ;; \
+     esac \
   && rm -rf "/tmp/${archive}" "/tmp/${sums}" "/tmp/${sums}.gpgsig" \
      /tmp/expected.sha256 /tmp/opentofu-release.asc "${GNUPGHOME}" \
   && apk del .tofu-verify \

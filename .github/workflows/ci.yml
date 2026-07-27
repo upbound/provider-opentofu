@@ -222,9 +222,12 @@ jobs:
             docker buildx build --platform "linux/${arch}" --load \
               -t "provider-opentofu-imagecheck:${arch}" "${ctx}"
             actual="$(docker run --rm --platform "linux/${arch}" \
-              --entrypoint tofu "provider-opentofu-imagecheck:${arch}" version | head -n1)"
+              --entrypoint tofu "provider-opentofu-imagecheck:${arch}" version)"
             echo "linux/${arch}: ${actual}"
-            test "${actual}" = "OpenTofu v${EXPECTED}"
+            case "${actual}" in
+              "OpenTofu v${EXPECTED}"*) ;;
+              *) echo "linux/${arch} bundles the wrong OpenTofu; expected v${EXPECTED}" >&2; exit 1 ;;
+            esac
           done
 
   # The real-binary tests are behind the invoke_tofu build tag, so `make test`
