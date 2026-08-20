@@ -1,6 +1,6 @@
 module github.com/upbound/provider-opentofu
 
-go 1.25.12
+go 1.26.6
 
 tool golang.org/x/tools/cmd/goimports
 
