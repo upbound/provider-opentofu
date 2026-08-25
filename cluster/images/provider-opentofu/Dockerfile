@@ -1,4 +1,4 @@
-FROM alpine:3.22.2
+FROM alpine:3.22.5
 RUN apk --no-cache add ca-certificates bash git curl
 ARG TARGETOS
 ARG TARGETARCH
