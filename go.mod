@@ -7,7 +7,7 @@ tool golang.org/x/tools/cmd/goimports
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/alecthomas/kingpin/v2 v2.4.0
-	github.com/crossplane/crossplane-runtime/v2 v2.4.0
+	github.com/crossplane/crossplane-runtime/v2 v2.5.0-rc.0.0.20260908074656-9b2fb6b1d1ff
 	github.com/crossplane/crossplane-tools v0.0.0-20260719180100-659f1dc036c5
 	github.com/crossplane/crossplane/apis/v2 v2.4.0
 	github.com/google/go-cmp v0.7.0
@@ -74,7 +74,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.7 // indirect
+	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
