@@ -8,6 +8,27 @@ There are several ways to provide configurations to the OpenTofu
 provider that will propagate to the underlying workspace. In the
 following sections, we will cover the most common ones.
 
+## Bundled OpenTofu version
+
+The provider does not talk to OpenTofu over an API; it runs the `tofu` binary
+that is baked into the controller image. That version is pinned by
+`OPENTOFU_VERSION` in `cluster/images/provider-opentofu/Dockerfile` and cannot
+be changed at runtime, so a module with a `required_version` constraint the
+bundled binary does not satisfy will fail with
+`Unsupported OpenTofu Core version`.
+
+To see what a given image actually ships:
+
+```shell
+docker run --rm --entrypoint tofu \
+  xpkg.upbound.io/upbound/provider-opentofu:<version> version
+```
+
+The image build verifies the download against OpenTofu's signed checksums and
+asserts that the installed binary matches the pin, so an image that reports a
+different version than the release it was built from indicates a problem with
+the build, not with the pin.
+
 ## IAM Roles for Service Accounts (IRSA)
 
 You can setup the OpenTofu Provider using AWS [IAM Roles for Service Accounts
@@ -294,7 +315,6 @@ metadata:
   labels:
     app: crossplane-provider-opentofu
 spec:
-  image: crossplane/provider-opentofu-controller:v0.1.0
   args:
     - -d
     - --enable-external-secret-stores

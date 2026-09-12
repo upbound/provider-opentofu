@@ -4,8 +4,9 @@ SPDX-FileCopyrightText: 2025 Upbound Inc. <https://upbound.io>
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package opentofu provides a harness for the tofu CLI. It is known to
-// work with OpenTofu v1.8.2.
+// Package opentofu provides a harness for the tofu CLI. The version it is
+// tested against is the one bundled in the provider image, pinned as
+// OPENTOFU_VERSION in cluster/images/provider-opentofu/Dockerfile.
 package opentofu
 
 import (

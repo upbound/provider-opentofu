@@ -15,6 +15,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -391,7 +393,7 @@ func TestInitDiffApplyDestroy(t *testing.T) {
 				ctx: context.Background(),
 			},
 			want: want{
-				init:  errors.New("module not found"),
+				init:  errors.New("failed to download module"),
 				diff:  errors.New("no configuration files"),
 				apply: errors.New("no configuration files"),
 				// Apparently destroy 'works' in this situation ¯\_(ツ)_/¯
@@ -432,74 +434,93 @@ func TestInitDiffApplyDestroy(t *testing.T) {
 			tf := Harness{Path: tofuBinaryPath, Dir: dir, UsePluginCache: false}
 
 			err = tf.Init(tc.initArgs.ctx, tc.initArgs.o...)
-			if diff := cmp.Diff(tc.want.init, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Init(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Init(...)", tc.want.init, err)
 
 			differs, err := tf.Diff(tc.diffArgs.ctx, tc.diffArgs.o...)
 			t.Logf("Want %t, got %t", tc.want.differsBeforeApply, differs)
-			if diff := cmp.Diff(tc.want.diff, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Diff(...): -want error, +got error (before apply):\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Diff(...) (before apply)", tc.want.diff, err)
 			if diff := cmp.Diff(tc.want.differsBeforeApply, differs); diff != "" {
 				t.Errorf("\n%s\ntf.Diff(...): -want, +got (before apply):\n%s", tc.reason, diff)
 			}
 
 			err = tf.Apply(tc.applyArgs.ctx, tc.applyArgs.o...)
-			if diff := cmp.Diff(tc.want.apply, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Apply(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Apply(...)", tc.want.apply, err)
 
 			differs, err = tf.Diff(tc.diffArgs.ctx, tc.diffArgs.o...)
-			if diff := cmp.Diff(tc.want.diff, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Diff(...): -want error, +got error (after apply):\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Diff(...) (after apply)", tc.want.diff, err)
 			if diff := cmp.Diff(tc.want.differsAfterApply, differs); diff != "" {
 				t.Errorf("\n%s\ntf.Diff(...): -want, +got (after apply):\n%s", tc.reason, diff)
 			}
 
 			err = tf.Destroy(tc.destroyArgs.ctx, tc.destroyArgs.o...)
-			if diff := cmp.Diff(tc.want.destroy, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Destroy(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
+			checkErr(t, tc.reason, "tf.Destroy(...)", tc.want.destroy, err)
 		})
 	}
 }
 
+// checkErr compares a wanted error against one the harness returned. Errors
+// originating from the tofu binary are wrapped by Classify, which replaces the
+// raw output with a summary line plus a compressed copy of the full output, so
+// an exact comparison would couple these tests to a specific tofu version's
+// wording. The wanted error is therefore matched as a case-insensitive
+// substring: enough to prove the error was classified, loose enough to survive
+// a version bump.
+func checkErr(t *testing.T, reason, op string, want, got error) {
+	t.Helper()
+
+	switch {
+	case want == nil && got != nil:
+		t.Errorf("\n%s\n%s: want no error, got: %v", reason, op, got)
+	case want != nil && got == nil:
+		t.Errorf("\n%s\n%s: want an error containing %q, got none", reason, op, want.Error())
+	case want != nil && !strings.Contains(strings.ToLower(got.Error()), strings.ToLower(want.Error())):
+		t.Errorf("\n%s\n%s: want an error containing %q, got: %v", reason, op, want.Error(), got)
+	}
+}
+
+var md5Sum = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+// TestGenerateChecksum checks the properties the caller actually relies on -
+// that the checksum is well formed, stable for unchanged content, and changes
+// when the workspace does - rather than a hard coded digest. A literal digest
+// would have to be recomputed whenever the test data changes, and says nothing
+// about whether change is detected, which is the only reason the checksum
+// exists: it is what decides whether `tofu init` needs to run again.
 func TestGenerateChecksum(t *testing.T) {
-	type want struct {
-		output string
-		err    error
-	}
-	cases := map[string]struct {
-		reason string
-		module string
-		ctx    context.Context
-		want   want
-	}{
-		"Checksum": {
-			reason: "We should return the checksum for a directory",
-			module: "testdata/outputmodule",
-			ctx:    context.Background(),
-			want: want{
-				output: "d41d8cd98f00b204e9800998ecf8427e",
-			},
-		},
+	ctx := context.Background()
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte("# empty\n"), 0o600); err != nil {
+		t.Fatalf("Cannot write test module: %v", err)
 	}
 
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			// Reading output is a read-only operation, so we operate directly
-			// on our test data instead of creating a temporary directory.
-			tf := Harness{Path: tofuBinaryPath, Dir: tc.module}
-			got, err := tf.GenerateChecksum(tc.ctx)
+	tf := Harness{Path: tofuBinaryPath, Dir: dir}
 
-			if diff := cmp.Diff(tc.want.output, got, cmp.AllowUnexported(Output{})); diff != "" {
-				t.Errorf("\n%s\ntf.GenerateChecksum(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
-			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
-				t.Errorf("\n%s\ntf.Outputs(...): -want error, +got error:\n%s", tc.reason, diff)
-			}
-		})
+	first, err := tf.GenerateChecksum(ctx)
+	if err != nil {
+		t.Fatalf("tf.GenerateChecksum(...): unexpected error: %v", err)
+	}
+	if !md5Sum.MatchString(first) {
+		t.Fatalf("tf.GenerateChecksum(...): want an md5 sum, got %q", first)
+	}
+
+	again, err := tf.GenerateChecksum(ctx)
+	if err != nil {
+		t.Fatalf("tf.GenerateChecksum(...): unexpected error: %v", err)
+	}
+	if again != first {
+		t.Errorf("The checksum should be stable while the workspace is unchanged: got %q then %q", first, again)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "variables.tf"), []byte("variable \"coolness\" {}\n"), 0o600); err != nil {
+		t.Fatalf("Cannot write test module: %v", err)
+	}
+
+	changed, err := tf.GenerateChecksum(ctx)
+	if err != nil {
+		t.Fatalf("tf.GenerateChecksum(...): unexpected error: %v", err)
+	}
+	if changed == first {
+		t.Errorf("The checksum should change when the workspace does: got %q both before and after adding a file", first)
 	}
 }
