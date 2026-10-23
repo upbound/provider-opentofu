@@ -61,6 +61,19 @@
     },
     {
       customType: 'regex',
+      description: 'Bump the OpenTofu version bundled in the controller image',
+      managerFilePatterns: [
+        '/^cluster\\/images\\/provider-opentofu\\/Dockerfile$/',
+      ],
+      matchStrings: [
+        'ENV OPENTOFU_VERSION=(?<currentValue>.*?)\\n',
+      ],
+      datasourceTemplate: 'github-releases',
+      depNameTemplate: 'opentofu/opentofu',
+      extractVersionTemplate: '^v(?<version>.*)$',
+    },
+    {
+      customType: 'regex',
       description: 'Bump kind version in the Makefile',
       managerFilePatterns: [
         '/^Makefile$/',

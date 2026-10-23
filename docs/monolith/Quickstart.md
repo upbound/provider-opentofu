@@ -70,7 +70,7 @@ After installing the provider, verify the install with `kubectl get providers`.
 ```shell
 $ kubectl get providers
 NAME                 INSTALLED   HEALTHY   PACKAGE                                             AGE
-provider-opentofu   True        True      xpkg.upbound.io/upbound/provider-opentofu:v0.1.0   15s
+provider-opentofu   True        True      xpkg.upbound.io/upbound/provider-opentofu:v1.1.5   15s
 ```
 
 It may take up to 5 minutes to report `HEALTHY`.
