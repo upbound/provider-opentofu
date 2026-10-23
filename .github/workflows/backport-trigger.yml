@@ -27,4 +27,4 @@ jobs:
           fetch-depth: 0
 
       - name: Open Backport PR
-        uses: zeebe-io/backport-action@ca4972adce8039ff995e618f5fc02d1b7961f27a # v3.3.0
+        uses: zeebe-io/backport-action@8560fb503c275d433c56f05a2f64850093baa9f7 # v4.7.0
