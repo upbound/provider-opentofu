@@ -68,6 +68,7 @@ const (
 	errVarResolution   = "cannot resolve variables"
 	errDeleteWorkspace = "cannot delete tofu workspace"
 	errChecksum        = "cannot calculate workspace checksum"
+	errEntrypoint      = "entrypoint must be a relative path inside the workspace directory"
 
 	gitCredentialsFilename = ".git-credentials"
 )
@@ -225,10 +226,9 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 
 	// Calculate the final tofu working directory (including entrypoint if specified)
 	// This is where tofu will actually run and create .terraform directory
-	tofuWorkDir := dir
-	if len(cr.Spec.ForProvider.Entrypoint) > 0 {
-		entrypoint := strings.ReplaceAll(cr.Spec.ForProvider.Entrypoint, "../", "")
-		tofuWorkDir = filepath.Join(dir, entrypoint)
+	tofuWorkDir, err := workspaceDir(dir, cr.Spec.ForProvider.Entrypoint)
+	if err != nil {
+		return nil, err
 	}
 
 	switch cr.Spec.ForProvider.Source {
@@ -296,10 +296,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		}
 	}
 
-	if len(cr.Spec.ForProvider.Entrypoint) > 0 {
-		entrypoint := strings.ReplaceAll(cr.Spec.ForProvider.Entrypoint, "../", "")
-		dir = filepath.Join(dir, entrypoint)
-	}
+	dir = tofuWorkDir
 
 	for _, cd := range pc.Spec.Credentials {
 		data, err := resource.CommonCredentialExtractor(ctx, cd.Source, c.kube, cd.CommonCredentialSelectors)
@@ -584,6 +581,21 @@ func op2cd(o []opentofu.Output) managed.ConnectionDetails {
 		}
 	}
 	return cd
+}
+
+// workspaceDir returns the directory tofu runs in: the workspace directory
+// itself, or the subdirectory named by entrypoint. The joined path is cleaned,
+// so an entrypoint that resolves outside the workspace directory is rejected
+// rather than pointed at another workspace's files.
+func workspaceDir(root, entrypoint string) (string, error) {
+	if entrypoint == "" {
+		return root, nil
+	}
+	p := filepath.Join(root, entrypoint)
+	if p != root && !strings.HasPrefix(p, root+string(filepath.Separator)) {
+		return "", errors.New(errEntrypoint)
+	}
+	return p, nil
 }
 
 // validateTofuLockFile checks if .terraform.lock.hcl exists and is valid.
