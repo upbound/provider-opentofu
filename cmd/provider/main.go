@@ -67,6 +67,7 @@ func main() {
 		pollStateMetricInterval  = app.Flag("poll-state-metric", "State metric recording interval").Default("5s").Duration()
 		pollJitter               = app.Flag("poll-jitter", "If non-zero, varies the poll interval by a random amount up to plus-or-minus this value.").Default("1m").Duration()
 		timeout                  = app.Flag("timeout", "Controls how long tofu processes may run before they are killed.").Default("20m").Duration()
+		gracefulShutdownTimeout  = app.Flag("graceful-shutdown-timeout", "Controls how long the controller manager waits for in-flight reconciles to finish after it receives a termination signal. Set to 0 to disable graceful shutdown and to a negative value to wait without limit.").Default("30s").Duration()
 		leaderElection           = app.Flag("leader-election", "Use leader election for the controller manager.").Short('l').Default("false").Envar("LEADER_ELECTION").Bool()
 		maxReconcileRate         = app.Flag("max-reconcile-rate", "The maximum number of concurrent reconciliation operations.").Default("1").Int()
 		enableManagementPolicies = app.Flag("enable-management-policies", "Enable support for Management Policies.").Default("true").Envar("ENABLE_MANAGEMENT_POLICIES").Bool()
@@ -84,7 +85,8 @@ func main() {
 		"sync-period", syncInterval.String(),
 		"poll-interval", pollInterval.String(),
 		"poll-jitter", pollJitter.String(),
-		"max-reconcile-rate", *maxReconcileRate)
+		"max-reconcile-rate", *maxReconcileRate,
+		"graceful-shutdown-timeout", gracefulShutdownTimeout.String())
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")
@@ -128,6 +130,7 @@ func main() {
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		LeaseDuration:              func() *time.Duration { d := 60 * time.Second; return &d }(),
 		RenewDeadline:              func() *time.Duration { d := 50 * time.Second; return &d }(),
+		GracefulShutdownTimeout:    gracefulShutdownTimeout,
 	})
 	kingpin.FatalIfError(err, "Cannot create controller manager")
 
