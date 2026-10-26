@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package opentofu
 
 import (
+	"context"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/google/go-cmp/cmp"
@@ -277,4 +279,37 @@ func TestFormatTofuErrorOutput(t *testing.T) {
 			expectedOutput["tooManyListItems"]["base64full"],
 		)
 	}
+}
+
+func TestRunCommand(t *testing.T) {
+	t.Run("ContextDoneBeforeStart", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := runCommand(ctx, exec.CommandContext(ctx, "sleep", "30"))
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("runCommand(...): want context.Canceled, got %v", err)
+		}
+	})
+	t.Run("ContextDoneWhileRunning", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		_, err := runCommand(ctx, exec.CommandContext(ctx, "sleep", "30"))
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("runCommand(...): want context.DeadlineExceeded, got %v", err)
+		}
+		if elapsed := time.Since(start); elapsed > 5*time.Second {
+			t.Errorf("runCommand(...) took %s, the process was not terminated on cancellation", elapsed)
+		}
+	})
+	t.Run("Succeeds", func(t *testing.T) {
+		ctx := context.Background()
+		out, err := runCommand(ctx, exec.CommandContext(ctx, "echo", "ok"))
+		if err != nil {
+			t.Fatalf("runCommand(...): unexpected error %v", err)
+		}
+		if string(out) != "ok\n" {
+			t.Errorf("runCommand(...): want %q, got %q", "ok\n", string(out))
+		}
+	})
 }
