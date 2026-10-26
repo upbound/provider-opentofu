@@ -35,8 +35,6 @@ const (
 	errWriteVarFile     = "cannot write tfvars file"
 	errFmtInvalidConfig = "invalid tofu configuration: found %d errors"
 	errRunCommand       = "shutdown while running tofu command"
-	errSigTerm          = "error sending SIGTERM to child process"
-	errWaitTerm         = "error waiting for child process to terminate"
 	errWriteLogs        = "error writing tofu logs to stdout"
 
 	tfDefault = "default"
@@ -666,35 +664,18 @@ func (h Harness) Destroy(ctx context.Context, o ...Option) error {
 	return Classify(err)
 }
 
-// cmdResult represents the result of the command execution
-type cmdResult struct {
-	out []byte
-	err error
-}
-
-// runCommand executes the requested command and sends the process SIGTERM if the context finishes before the command
+// runCommand executes the requested command. If the context ends before the
+// command does, which is container termination or the reconciliation
+// deadline, the process gets SIGTERM instead of the SIGKILL that
+// exec.CommandContext sends by default, so tofu can stop cleanly, and the
+// context error is reported.
 func runCommand(ctx context.Context, c *exec.Cmd) ([]byte, error) {
-	ch := make(chan cmdResult, 1)
-	go func() {
-		defer close(ch)
-		r, e := c.Output()
-		ch <- cmdResult{out: r, err: e}
-	}()
-	select {
-	case <-ctx.Done():
-		err := ctx.Err()
-		// This could be container termination or the reconciliation deadline was exceeded.  Either way send a
-		// SIGTERM to the running process and wait for either the command to finish or the process to get killed.
-		e := c.Process.Signal(syscall.SIGTERM)
-		if e != nil {
-			return nil, errors.Wrap(errors.Wrap(err, errRunCommand), errors.Wrap(e, errSigTerm).Error())
-		}
-		e = c.Wait()
-		if e != nil {
-			return nil, errors.Wrap(errors.Wrap(err, errRunCommand), errors.Wrap(e, errWaitTerm).Error())
-		}
-		return nil, errors.Wrap(err, errRunCommand)
-	case res := <-ch:
-		return res.out, res.err
+	c.Cancel = func() error {
+		return c.Process.Signal(syscall.SIGTERM)
 	}
+	out, err := c.Output()
+	if ctx.Err() != nil {
+		return nil, errors.Wrap(ctx.Err(), errRunCommand)
+	}
+	return out, err
 }
