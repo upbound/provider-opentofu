@@ -8,7 +8,7 @@ on: issue_comment
 
 jobs:
   backport:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/backport')
     steps:
       - name: Extract Command
