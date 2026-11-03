@@ -100,6 +100,7 @@ type tofuclient interface {
 	Outputs(ctx context.Context) ([]opentofu.Output, error)
 	Resources(ctx context.Context) ([]string, error)
 	Diff(ctx context.Context, o ...opentofu.Option) (bool, error)
+	ShowPlan(ctx context.Context, planFile string) ([]byte, []byte, error)
 	Apply(ctx context.Context, o ...opentofu.Option) error
 	Destroy(ctx context.Context, o ...opentofu.Option) error
 	DeleteCurrentWorkspace(ctx context.Context) error
@@ -383,19 +384,33 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	if err := tofu.Init(ctx, o...); err != nil {
 		return nil, errors.Wrap(err, errInit)
 	}
-	return &external{tofu: tofu, kube: c.kube}, errors.Wrap(tofu.Workspace(ctx, meta.GetExternalName(cr)), errWorkspace)
+	return &external{tofu: tofu, kube: c.kube, logger: c.logger}, errors.Wrap(tofu.Workspace(ctx, meta.GetExternalName(cr)), errWorkspace)
 }
 
 type external struct {
 	tofu   tofuclient
 	kube   client.Client
 	logger logging.Logger
+
+	// planSecret is the plan history revision recorded (or matched) by the
+	// most recent Observe, so that Update can mark it applied or failed.
+	planSecret string
 }
 
 func (c *external) checkDiff(ctx context.Context, cr *v1beta1.Workspace) (bool, error) {
 	o, err := c.options(ctx, cr.Spec.ForProvider, cr.GetNamespace())
 	if err != nil {
 		return false, errors.Wrap(err, errOptions)
+	}
+
+	// Optionally save the plan so that it can be written to a Secret.
+	var planFile string
+	if cr.Spec.ForProvider.WritePlanToSecretRef != nil && !meta.WasDeleted(cr) {
+		if planFile, err = newPlanFile(); err != nil {
+			return false, err
+		}
+		defer os.Remove(planFile) //nolint:errcheck // best effort cleanup of a temp file
+		o = append(o, opentofu.WithPlanFile(planFile))
 	}
 
 	o = append(o, opentofu.WithArgs(cr.Spec.ForProvider.PlanArgs))
@@ -407,6 +422,11 @@ func (c *external) checkDiff(ctx context.Context, cr *v1beta1.Workspace) (bool, 
 		// tofu plan can fail on deleted resources, so let the reconciliation loop
 		// call Delete() if there are still resources in the tfstate file
 		differs = false
+	}
+	if planFile != "" {
+		if err := c.recordPlan(ctx, cr, planFile, differs); err != nil {
+			return false, err
+		}
 	}
 	return differs, nil
 }
@@ -480,7 +500,14 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	o = append(o, opentofu.WithArgs(cr.Spec.ForProvider.ApplyArgs))
 	if err := c.tofu.Apply(ctx, o...); err != nil {
+		// Best effort: the apply error is what matters to the caller.
+		_ = c.markPlan(ctx, cr, PlanStatusFailed)
 		return managed.ExternalUpdate{}, errors.Wrap(err, errApply)
+	}
+	// Recording the outcome must not cause the apply to be retried, so a
+	// failure here is only logged.
+	if err := c.markPlan(ctx, cr, PlanStatusApplied); err != nil && c.logger != nil {
+		c.logger.Info(errMarkApplied, "error", err)
 	}
 
 	op, err := c.tofu.Outputs(ctx)

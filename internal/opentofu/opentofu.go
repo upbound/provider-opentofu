@@ -499,6 +499,24 @@ func WithArgs(v []string) Option {
 	}
 }
 
+// ArgsToString converts tofu options to the list of CLI arguments they add.
+func ArgsToString(o []Option) []string {
+	ao := &options{}
+	for _, fn := range o {
+		fn(ao)
+	}
+	return ao.args
+}
+
+// WithPlanFile makes 'tofu plan' save the generated plan to the supplied
+// path, so that it can later be rendered with ShowPlan. The path should be
+// outside of the workspace directory so it does not affect the checksum.
+func WithPlanFile(path string) Option {
+	return func(o *options) {
+		o.args = append(o.args, "-out="+path)
+	}
+}
+
 // WithVar supplies a Terraform variable.
 func WithVar(k, v string) Option {
 	return func(o *options) {
@@ -574,6 +592,29 @@ func (h Harness) Diff(ctx context.Context, o ...Option) (bool, error) {
 		return true, nil
 	}
 	return false, Classify(err)
+}
+
+// ShowPlan renders a plan file previously written by Diff (see WithPlanFile)
+// both as human-readable text and as machine-readable JSON.
+func (h Harness) ShowPlan(ctx context.Context, planFile string) (text []byte, js []byte, err error) {
+	show := func(extra ...string) ([]byte, error) {
+		args := append([]string{"show", "-no-color"}, extra...)
+		args = append(args, planFile)
+		cmd := exec.CommandContext(ctx, h.Path, args...) //nolint:gosec
+		cmd.Dir = h.Dir
+		if len(h.Envs) > 0 {
+			cmd.Env = append(os.Environ(), h.Envs...)
+		}
+		out, err := runCommand(ctx, cmd)
+		return out, Classify(err)
+	}
+	if text, err = show(); err != nil {
+		return nil, nil, err
+	}
+	if js, err = show("-json"); err != nil {
+		return nil, nil, err
+	}
+	return text, js, nil
 }
 
 // Apply a tofu configuration.

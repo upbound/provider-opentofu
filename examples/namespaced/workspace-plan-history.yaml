@@ -1,0 +1,33 @@
+# Keeps a Helm-like history of 'tofu plan' results. Each distinct plan is
+# stored in a Secret named plan-history-example.v<N> in the Workspace's
+# namespace, labelled with its revision and status:
+#
+#   kubectl get secret -l opentofu.upbound.io/workspace=example-plan-history \
+#     -L opentofu.upbound.io/plan-revision,opentofu.upbound.io/plan-status
+#
+# Combine with managementPolicies: ["Observe"] to review a pending plan before
+# allowing it to be applied.
+apiVersion: opentofu.m.upbound.io/v1beta1
+kind: Workspace
+metadata:
+  name: example-plan-history
+  namespace: default
+spec:
+  forProvider:
+    source: Inline
+    module: |
+      variable "greeting" {
+        type = string
+      }
+      resource "terraform_data" "greeting" {
+        input = var.greeting
+      }
+      output "greeting" {
+        value = terraform_data.greeting.output
+      }
+    vars:
+    - key: greeting
+      value: hello
+    writePlanToSecretRef:
+      name: plan-history-example
+      historyLimit: 10

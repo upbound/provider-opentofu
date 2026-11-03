@@ -227,6 +227,35 @@ spec:
                       - value
                       type: object
                     type: array
+                  writePlanToSecretRef:
+                    description: |-
+                      WritePlanToSecretRef enables a history of 'tofu plan' results, stored
+                      as Secrets in the Workspace's namespace, similar to how Helm stores releases.
+                      A new revision named <name>.v<revision> is created each time the plan
+                      changes. Each revision holds a human-readable rendering under the
+                      'plan.txt' key and the 'tofu show -json' output under the 'plan.json'
+                      key, and is labelled with its revision and status (pending, applied,
+                      failed, superseded or no-op). Note that both keys may contain sensitive
+                      values. Revisions are owned by the Workspace and are garbage-collected
+                      with it.
+                    properties:
+                      historyLimit:
+                        default: 10
+                        description: |-
+                          HistoryLimit is the maximum number of plan revisions to keep. Older
+                          revisions are deleted.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      name:
+                        description: |-
+                          Name is the base name of the plan history Secrets. Each revision is
+                          stored in a Secret named <name>.v<revision>.
+                        maxLength: 240
+                        type: string
+                    required:
+                    - name
+                    type: object
                 required:
                 - module
                 - source

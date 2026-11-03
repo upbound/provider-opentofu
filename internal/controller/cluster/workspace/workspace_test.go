@@ -70,6 +70,11 @@ type MockTofu struct {
 	MockDestroy                func(ctx context.Context, o ...opentofu.Option) error
 	MockDeleteCurrentWorkspace func(ctx context.Context) error
 	MockGenerateChecksum       func(ctx context.Context) (string, error)
+	MockShowPlan               func(ctx context.Context, planFile string) ([]byte, []byte, error)
+}
+
+func (tf *MockTofu) ShowPlan(ctx context.Context, planFile string) ([]byte, []byte, error) {
+	return tf.MockShowPlan(ctx, planFile)
 }
 
 func (tf *MockTofu) Init(ctx context.Context, o ...opentofu.InitOption) error {

@@ -105,6 +105,24 @@ const (
 	RemotePullPolicyIfNotPresent RemotePullPolicy = "IfNotPresent"
 )
 
+// A PlanHistoryReference configures where and how much plan history is kept.
+type PlanHistoryReference struct {
+	// Name is the base name of the plan history Secrets. Each revision is
+	// stored in a Secret named <name>.v<revision>.
+	// +kubebuilder:validation:MaxLength=240
+	Name string `json:"name"`
+
+	// Namespace of the plan history Secrets.
+	Namespace string `json:"namespace"`
+
+	// HistoryLimit is the maximum number of plan revisions to keep. Older
+	// revisions are deleted.
+	// +kubebuilder:default=10
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	HistoryLimit *int32 `json:"historyLimit,omitempty"`
+}
+
 // WorkspaceParameters are the configurable fields of a Workspace.
 type WorkspaceParameters struct {
 	// The root module of this workspace; i.e. the module containing its main.tf
@@ -158,6 +176,18 @@ type WorkspaceParameters struct {
 	// Boolean value to indicate CLI logging of tofu execution is enabled or not
 	// +optional
 	EnableTofuCLILogging bool `json:"enableTofuCLILogging,omitempty"`
+
+	// WritePlanToSecretRef enables a history of 'tofu plan' results, stored
+	// as Secrets in the referenced namespace, similar to how Helm stores releases.
+	// A new revision named <name>.v<revision> is created each time the plan
+	// changes. Each revision holds a human-readable rendering under the
+	// 'plan.txt' key and the 'tofu show -json' output under the 'plan.json'
+	// key, and is labelled with its revision and status (pending, applied,
+	// failed, superseded or no-op). Note that both keys may contain sensitive
+	// values. Revisions are owned by the Workspace and are garbage-collected
+	// with it.
+	// +optional
+	WritePlanToSecretRef *PlanHistoryReference `json:"writePlanToSecretRef,omitempty"`
 
 	// RemotePullPolicy determines when to download remote module sources.
 	// +optional
