@@ -100,6 +100,7 @@ type tofuclient interface {
 	Outputs(ctx context.Context) ([]opentofu.Output, error)
 	Resources(ctx context.Context) ([]string, error)
 	Diff(ctx context.Context, o ...opentofu.Option) (bool, error)
+	ShowPlan(ctx context.Context, planFile string) ([]byte, []byte, error)
 	Apply(ctx context.Context, o ...opentofu.Option) error
 	Destroy(ctx context.Context, o ...opentofu.Option) error
 	DeleteCurrentWorkspace(ctx context.Context) error
@@ -370,7 +371,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		}
 		if cr.Status.AtProvider.Checksum == checksum {
 			l.Debug("Checksums match - skip running tofu init")
-			return &external{tofu: tofu, kube: c.kube, logger: c.logger}, errors.Wrap(tofu.Workspace(ctx, meta.GetExternalName(cr)), errWorkspace)
+			return &external{tofu: tofu, kube: c.kube, logger: l}, errors.Wrap(tofu.Workspace(ctx, meta.GetExternalName(cr)), errWorkspace)
 		}
 		l.Debug("Checksums don't match so run tofu init:", "old", cr.Status.AtProvider.Checksum, "new", checksum)
 	}
@@ -383,13 +384,17 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	if err := tofu.Init(ctx, o...); err != nil {
 		return nil, errors.Wrap(err, errInit)
 	}
-	return &external{tofu: tofu, kube: c.kube}, errors.Wrap(tofu.Workspace(ctx, meta.GetExternalName(cr)), errWorkspace)
+	return &external{tofu: tofu, kube: c.kube, logger: l}, errors.Wrap(tofu.Workspace(ctx, meta.GetExternalName(cr)), errWorkspace)
 }
 
 type external struct {
 	tofu   tofuclient
 	kube   client.Client
 	logger logging.Logger
+
+	// planSecret is the plan history revision recorded (or matched) by the
+	// most recent Observe, so that Update can mark it applied or failed.
+	planSecret string
 }
 
 func (c *external) checkDiff(ctx context.Context, cr *v1beta1.Workspace) (bool, error) {
@@ -399,6 +404,24 @@ func (c *external) checkDiff(ctx context.Context, cr *v1beta1.Workspace) (bool, 
 	}
 
 	o = append(o, opentofu.WithArgs(cr.Spec.ForProvider.PlanArgs))
+
+	// Plan history is strictly best effort: it must never make a Workspace
+	// fail that would succeed without it. When it is disabled none of this
+	// runs and tofu plan is invoked exactly as before.
+	if planFile := c.historyPlanFile(cr); planFile != "" {
+		defer os.Remove(planFile) //nolint:errcheck // best effort cleanup of a temp file
+		differs, err := c.tofu.Diff(ctx, append(o[:len(o):len(o)], opentofu.WithPlanFile(planFile))...)
+		if err == nil {
+			if err := c.recordPlan(ctx, cr, planFile, differs); err != nil {
+				c.logInfo(errRecordPlan, err)
+			}
+			return differs, nil
+		}
+		// Saving the plan may be what failed (e.g. a backend that does not
+		// support saved plans), so fall back to a plain plan.
+		c.logInfo(errSavePlan, err)
+	}
+
 	differs, err := c.tofu.Diff(ctx, o...)
 	if err != nil {
 		if !meta.WasDeleted(cr) {
@@ -480,7 +503,16 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	o = append(o, opentofu.WithArgs(cr.Spec.ForProvider.ApplyArgs))
 	if err := c.tofu.Apply(ctx, o...); err != nil {
+		// Best effort: the apply error is what matters to the caller.
+		if merr := c.markPlan(ctx, cr, PlanStatusFailed); merr != nil {
+			c.logInfo(errMarkFailed, merr)
+		}
 		return managed.ExternalUpdate{}, errors.Wrap(err, errApply)
+	}
+	// Recording the outcome must not cause the apply to be retried, so a
+	// failure here is only logged.
+	if err := c.markPlan(ctx, cr, PlanStatusApplied); err != nil {
+		c.logInfo(errMarkApplied, err)
 	}
 
 	op, err := c.tofu.Outputs(ctx)
