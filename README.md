@@ -94,16 +94,13 @@ spec:
 
 ## Getting Started
 
-<!-- TODO Update link -->
-Follow the quick start guide [here](https://marketplace.upbound.io/providers/upbound/provider-opentofu/latest/docs/quickstart).
+Follow the quick start guide [here](https://github.com/upbound/provider-opentofu/blob/main/docs/monolith/Quickstart.md).
 
-<!-- TODO Update link -->
-You can find a detailed API reference for all the managed resources with examples in the [Upbound Marketplace](https://marketplace.upbound.io/providers/upbound/provider-opentofu/latest/managed-resources).
+You can find a detailed API reference for all the managed resources with examples in the [Upbound Marketplace](https://marketplace.upbound.io/providers/upbound/provider-opentofu/latest?tab=managedResources).
 
 ## Further Configuration
 
-<!-- TODO Update link -->
-You can find more information about configuring the provider further [here](https://marketplace.upbound.io/providers/upbound/provider-opentofu/latest/docs/configuration).
+You can find more information about configuring the provider further [here](https://github.com/upbound/provider-opentofu/blob/main/docs/monolith/Configuration.md).
 
 ### Polling Interval
 The default polling interval has been updated to 10 minutes from 1 minute.
