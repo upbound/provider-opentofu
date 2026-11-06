@@ -380,3 +380,109 @@ spec:
 ```
 
 - `enableTofuCLILogging`: Specifies whether logging is enabled (`true`) or disabled (`false`). When enabled, OpenTofu CLI command output will be written to the container logs. Default is `false`
+
+## Plan history
+
+The provider runs `tofu plan` on every observation to decide whether the
+workspace needs to be applied. By default that plan is discarded. Setting the
+**optional** `writePlanToSecretRef` field keeps a history of plans as Secrets,
+in a similar way to how Helm stores releases.
+
+```yaml
+apiVersion: opentofu.m.upbound.io/v1beta1
+kind: Workspace
+metadata:
+  name: example-plan-history
+  namespace: default
+spec:
+  forProvider:
+    source: Inline
+    module: |
+      ...
+    writePlanToSecretRef:
+      name: example-plan
+      historyLimit: 10
+```
+
+- `name`: base name of the Secrets. Revision `N` is stored in `<name>.vN`.
+- `historyLimit`: maximum number of revisions to keep (default `10`). The
+  oldest revisions are deleted first.
+- `namespace`: namespace of the Secrets. Only for the cluster-scoped
+  `opentofu.upbound.io` Workspace; the namespaced `opentofu.m.upbound.io`
+  Workspace always uses its own namespace.
+
+A new revision is only created when the plan changes, so periodic polls of an
+unchanged workspace do not add revisions. Each revision is a Secret of type
+`opentofu.upbound.io/plan.v1` with two keys:
+
+- `plan.txt`: the human-readable plan (`tofu show`).
+- `plan.json.gz`: the machine-readable plan (`tofu show -json`), gzipped, for
+  example for policy checks with OPA/conftest. JSON plans include the whole
+  state several times and compress very well, which keeps large workspaces
+  within the Secret size limit.
+
+Each revision is labelled with `opentofu.upbound.io/plan-revision` and
+`opentofu.upbound.io/plan-status`, which is one of:
+
+| Status       | Meaning                                                        |
+|--------------|----------------------------------------------------------------|
+| `pending`    | The plan has changes that have not been applied yet.           |
+| `applied`    | The plan was applied (see the `applied-at` annotation).         |
+| `failed`     | Applying the plan failed (see the `failed-at` annotation).      |
+| `superseded` | A different plan was recorded before this one was applied.     |
+| `no-op`      | The plan had no changes: the workspace had converged.          |
+
+To list the history of a Workspace:
+
+```console
+$ kubectl get secret -l opentofu.upbound.io/workspace=example-plan-history \
+    -L opentofu.upbound.io/plan-revision,opentofu.upbound.io/plan-status
+NAME              TYPE                          DATA   AGE   PLAN-REVISION   PLAN-STATUS
+example-plan.v1   opentofu.upbound.io/plan.v1   2      2h    1               applied
+example-plan.v2   opentofu.upbound.io/plan.v1   2      2h    2               no-op
+example-plan.v3   opentofu.upbound.io/plan.v1   2      5m    3               pending
+
+$ kubectl get secret example-plan.v3 -o jsonpath='{.data.plan\.txt}' | base64 -d
+$ kubectl get secret example-plan.v3 -o jsonpath='{.data.plan\.json\.gz}' | base64 -d | gunzip
+```
+
+The `opentofu.upbound.io/workspace` label is only set when the Workspace name
+is a valid label value (63 characters or less). The
+`opentofu.upbound.io/workspace-uid` label is always set.
+
+### Reviewing a plan before it is applied
+
+When the provider is allowed to apply, it plans and applies in the same
+reconciliation, so a `pending` revision quickly becomes `applied`. To review a
+plan first, set `managementPolicies: ["Observe"]` on the Workspace: plans are
+recorded as `pending` but never applied. Once satisfied, set
+`managementPolicies: ["*"]` to let the provider apply.
+
+Note that the provider does not apply the saved plan file: `tofu apply` runs
+its own plan a few seconds later. An `applied` revision means that the plan was
+applied in the same reconciliation, not that the applied changes are
+guaranteed to be byte-for-byte identical.
+
+### Things to be aware of
+
+- **Plans can contain secrets.** `plan.json.gz` contains sensitive values in
+  clear text, and `plan.txt` can too, because OpenTofu does not always
+  propagate sensitivity to derived attributes. Restrict who can read Secrets
+  in the namespace where the history is stored.
+- **Best effort.** Plan history never makes a Workspace fail. If a revision
+  cannot be recorded, for example because of missing RBAC or a name collision
+  with an existing Secret, the error is logged by the provider and the
+  Workspace is reconciled as usual. If saving the plan makes `tofu plan` fail,
+  for example with a backend that does not support saved plans, the provider
+  runs a plain `tofu plan` instead.
+- **`-out` in `planArgs`.** If `planArgs` already contains `-out`, plan
+  history is disabled for that Workspace so that the requested plan file is
+  not overridden.
+- **Size.** Secrets are limited to 1MiB. If `plan.txt` and the compressed
+  `plan.json.gz` do not fit, `plan.json.gz` is dropped (the revision is
+  annotated with `opentofu.upbound.io/plan-json-omitted`) and `plan.txt` is
+  truncated if needed.
+- **Cost.** When enabled, every observation also runs `tofu show` twice to
+  render the plan. The plan file is written to a temporary file in `/tmp`,
+  outside of the workspace directory, and deleted right away.
+- **Lifecycle.** Revisions are owned by the Workspace and deleted with it.
