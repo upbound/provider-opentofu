@@ -23,10 +23,10 @@ ADD opentofu-release.asc /tmp/opentofu-release.asc
 # not match the pin above, which is how upbound/provider-opentofu#130 shipped
 # 1.10.0 from a tree that said 1.10.8.
 #
-# /tofu is owned by UID 2000, and group-writable, because Crossplane overrides
-# this image's USER: the DeploymentRuntimeConfig it generates runs the provider
-# as 2000:2000. Group write additionally covers deployments that keep the
-# default UID but set an fsGroup.
+# /tofu is owned by UID 2000 because Crossplane overrides this image's USER:
+# the DeploymentRuntimeConfig it generates runs the provider as 2000:2000.
+# OpenShift's restricted SCCs instead run the container as an arbitrary UID in
+# the root group, so /tofu is group 0 and the group gets the owner's access.
 RUN set -eu \
   && apk --no-cache add --virtual .tofu-verify gnupg \
   && url="https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}" \
@@ -56,8 +56,8 @@ RUN set -eu \
      /tmp/expected.sha256 /tmp/opentofu-release.asc "${GNUPGHOME}" \
   && apk del .tofu-verify \
   && mkdir -p ${TF_PLUGIN_CACHE_DIR} \
-  && chown -R 2000:2000 /tofu \
-  && chmod -R g+rwX /tofu
+  && chown -R 2000:0 /tofu \
+  && chmod -R g=u /tofu
 
 # Crossplane overrides this with runAsUser 2000; see the chown above.
 # https://github.com/crossplane/crossplane/blob/v1.3.0/internal/controller/pkg/revision/deployment.go#L32
