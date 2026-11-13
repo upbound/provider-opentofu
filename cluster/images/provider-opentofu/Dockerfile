@@ -15,9 +15,12 @@ RUN curl -s -L https://github.com/opentofu/opentofu/releases/download/v${OPENTOF
   && rm tofu.zip \
   && chmod +x /usr/local/bin/tofu \
   && mkdir -p ${TF_PLUGIN_CACHE_DIR} \
-  && chown -R 2000 /tofu
+  && chown -R 2000:0 /tofu \
+  && chmod -R g=u /tofu
 # As of Crossplane v1.3.0 provider controllers run as UID 2000.
 # https://github.com/crossplane/crossplane/blob/v1.3.0/internal/controller/pkg/revision/deployment.go#L32
+# OpenShift's restricted SCCs run the container as an arbitrary UID in the
+# root group instead, so /tofu is also writable by GID 0.
 
 USER 65532
 ENTRYPOINT ["crossplane-opentofu-provider"]
