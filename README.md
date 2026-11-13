@@ -94,16 +94,29 @@ spec:
 
 ## Getting Started
 
-<!-- TODO Update link -->
-Follow the quick start guide [here](https://marketplace.upbound.io/providers/upbound/provider-opentofu/latest/docs/quickstart).
+Follow the [quick start guide](docs/monolith/Quickstart.md).
 
-<!-- TODO Update link -->
-You can find a detailed API reference for all the managed resources with examples in the [Upbound Marketplace](https://marketplace.upbound.io/providers/upbound/provider-opentofu/latest/managed-resources).
+You can find the API reference for the managed resources in
+[`package/crds`](package/crds), and runnable manifests in
+[`examples`](examples).
 
 ## Further Configuration
 
-<!-- TODO Update link -->
-You can find more information about configuring the provider further [here](https://marketplace.upbound.io/providers/upbound/provider-opentofu/latest/docs/configuration).
+You can find more information about configuring the provider in
+[Configuration](docs/monolith/Configuration.md),
+[Remote module pull policy](docs/monolith/RemoteModulePullPolicy.md) and
+[Troubleshooting](docs/monolith/Troubleshooting.md).
+
+### Bundled OpenTofu version
+
+The provider image bundles the `tofu` binary. The version is pinned by
+`OPENTOFU_VERSION` in
+[`cluster/images/provider-opentofu/Dockerfile`](cluster/images/provider-opentofu/Dockerfile),
+and you can check what an image actually ships with:
+
+```console
+docker run --rm --entrypoint tofu xpkg.upbound.io/upbound/provider-opentofu:<version> version
+```
 
 ### Polling Interval
 The default polling interval has been updated to 10 minutes from 1 minute.
