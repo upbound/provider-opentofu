@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
@@ -88,6 +89,12 @@ func envVarFallback(envvar string, fallback string) string {
 }
 
 var tfDir = envVarFallback("XP_TF_DIR", "/tofu")
+
+// gitCredMu serialises the window in which GIT_CRED_DIR is set. git reads the
+// variable from the process environment through the image's credential
+// helper, so without this a Workspace could clone with the git credentials of
+// whichever ProviderConfig was written last.
+var gitCredMu sync.Mutex
 
 // GetTfDir returns the OpenTofu working directory root.
 func GetTfDir() string {
@@ -197,6 +204,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	}
 
 	// Make git credentials available to inline and remote sources
+	var gitCredDir string
 	for _, cd := range pc.Spec.Credentials {
 		if cd.Filename != gitCredentialsFilename {
 			continue
@@ -207,21 +215,29 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		}
 		// NOTE(bobh66): Put the git credentials file in /tmp/tofu/<UUID> so it doesn't get removed or overwritten
 		// by the remote module source case
-		gitCredDir := filepath.Clean(filepath.Join("/tmp", dir))
+		gitCredDir = filepath.Clean(filepath.Join("/tmp", dir))
 		if err = c.fs.MkdirAll(gitCredDir, 0700); err != nil {
 			return nil, errors.Wrap(err, errWriteGitCreds)
-		}
-
-		// NOTE(ytsarev): Make go-getter pick up .git-credentials, see /.gitconfig in the container image
-		err = os.Setenv("GIT_CRED_DIR", gitCredDir)
-		if err != nil {
-			return nil, errors.Wrap(err, errSetGitCredDir)
 		}
 		p := filepath.Clean(filepath.Join(gitCredDir, filepath.Base(cd.Filename)))
 		if err := c.fs.WriteFile(p, data, 0600); err != nil {
 			return nil, errors.Wrap(err, errWriteGitCreds)
 		}
 	}
+
+	// NOTE(ytsarev): Make go-getter pick up .git-credentials, see /.gitconfig in the container image.
+	// The variable is process-wide, so it is only set while this Workspace pulls
+	// and initialises, and cleared afterwards.
+	gitCredMu.Lock()
+	defer gitCredMu.Unlock()
+	if gitCredDir != "" {
+		if err := os.Setenv("GIT_CRED_DIR", gitCredDir); err != nil {
+			return nil, errors.Wrap(err, errSetGitCredDir)
+		}
+	} else if err := os.Unsetenv("GIT_CRED_DIR"); err != nil {
+		return nil, errors.Wrap(err, errSetGitCredDir)
+	}
+	defer os.Unsetenv("GIT_CRED_DIR") //nolint:errcheck // best effort cleanup of a process-wide variable
 
 	// Calculate the final tofu working directory (including entrypoint if specified)
 	// This is where tofu will actually run and create .terraform directory
