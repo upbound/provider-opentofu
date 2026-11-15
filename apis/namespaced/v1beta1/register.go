@@ -9,8 +9,9 @@ package v1beta1
 import (
 	"reflect"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 // Package type metadata.
@@ -24,7 +25,7 @@ var (
 	SchemeGroupVersion = schema.GroupVersion{Group: Group, Version: Version}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+	SchemeBuilder = runtime.NewSchemeBuilder()
 )
 
 // ProviderConfig type metadata.
@@ -62,8 +63,14 @@ var (
 )
 
 func init() {
-	SchemeBuilder.Register(&ProviderConfig{}, &ProviderConfigList{})
-	SchemeBuilder.Register(&ProviderConfigUsage{}, &ProviderConfigUsageList{})
-	SchemeBuilder.Register(&Workspace{}, &WorkspaceList{})
-	SchemeBuilder.Register(&ClusterProviderConfig{}, &ClusterProviderConfigList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(SchemeGroupVersion,
+			&ProviderConfig{}, &ProviderConfigList{},
+			&ProviderConfigUsage{}, &ProviderConfigUsageList{},
+			&Workspace{}, &WorkspaceList{},
+			&ClusterProviderConfig{}, &ClusterProviderConfigList{},
+		)
+		metav1.AddToGroupVersion(s, SchemeGroupVersion)
+		return nil
+	})
 }

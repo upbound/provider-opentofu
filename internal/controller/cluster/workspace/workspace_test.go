@@ -24,10 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
+	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/upbound/provider-opentofu/apis/cluster/v1beta1"
 	"github.com/upbound/provider-opentofu/internal/clients"
@@ -183,8 +183,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 				},
@@ -202,7 +202,7 @@ func TestConnect(t *testing.T) {
 							// for credentials from the environment, but not
 							// specifying an environment variable.
 							pc.Spec.Credentials = []v1beta1.ProviderCredentials{{
-								Source: xpv1.CredentialsSourceEnvironment,
+								Source: xpv2.CredentialsSourceEnvironment,
 							}}
 						}
 						return nil
@@ -220,8 +220,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 				},
@@ -236,7 +236,7 @@ func TestConnect(t *testing.T) {
 						if pc, ok := obj.(*v1beta1.ProviderConfig); ok {
 							pc.Spec.Credentials = []v1beta1.ProviderCredentials{{
 								Filename: tfCreds,
-								Source:   xpv1.CredentialsSourceNone,
+								Source:   xpv2.CredentialsSourceNone,
 							}}
 						}
 						return nil
@@ -259,8 +259,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 				},
@@ -275,7 +275,7 @@ func TestConnect(t *testing.T) {
 						if pc, ok := obj.(*v1beta1.ProviderConfig); ok {
 							pc.Spec.Credentials = []v1beta1.ProviderCredentials{{
 								Filename: tfCreds,
-								Source:   xpv1.CredentialsSourceNone,
+								Source:   xpv2.CredentialsSourceNone,
 							}}
 						}
 						return nil
@@ -298,8 +298,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module:     "I'm HCL!",
@@ -319,7 +319,7 @@ func TestConnect(t *testing.T) {
 						if pc, ok := obj.(*v1beta1.ProviderConfig); ok {
 							pc.Spec.Credentials = []v1beta1.ProviderCredentials{{
 								Filename: ".git-credentials",
-								Source:   xpv1.CredentialsSourceNone,
+								Source:   xpv2.CredentialsSourceNone,
 							}}
 						}
 						return nil
@@ -342,8 +342,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module: "github.com/crossplane/rocks",
@@ -362,7 +362,7 @@ func TestConnect(t *testing.T) {
 						if pc, ok := obj.(*v1beta1.ProviderConfig); ok {
 							pc.Spec.Credentials = []v1beta1.ProviderCredentials{{
 								Filename: ".git-credentials",
-								Source:   xpv1.CredentialsSourceNone,
+								Source:   xpv2.CredentialsSourceNone,
 							}}
 						}
 						return nil
@@ -385,8 +385,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module: "github.com/crossplane/rocks",
@@ -426,8 +426,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module: "I'm HCL!",
@@ -467,8 +467,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module:     "I'm HCL!",
@@ -503,8 +503,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module: "I'm HCL!",
@@ -538,8 +538,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module:       "I'm JSON!",
@@ -567,8 +567,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 				},
@@ -594,8 +594,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 				},
@@ -619,8 +619,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module: "I'm HCL!",
@@ -654,8 +654,8 @@ func TestConnect(t *testing.T) {
 				mg: &v1beta1.Workspace{
 					ObjectMeta: metav1.ObjectMeta{UID: uid},
 					Spec: v1beta1.WorkspaceSpec{
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 						ForProvider: v1beta1.WorkspaceParameters{
 							Module: "I'm HCL!",
@@ -694,8 +694,8 @@ func TestConnect(t *testing.T) {
 						ForProvider: v1beta1.WorkspaceParameters{
 							InitArgs: []string{"-upgrade=true"},
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 				},
@@ -737,8 +737,8 @@ provider "registry.opentofu.org/hashicorp/aws" {
 							Module:           "git::https://github.com/org/repo?ref=v1.0.0",
 							RemotePullPolicy: func() *v1beta1.RemotePullPolicy { p := v1beta1.RemotePullPolicyIfNotPresent; return &p }(),
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 					Status: v1beta1.WorkspaceStatus{
@@ -785,8 +785,8 @@ provider "registry.opentofu.org/hashicorp/aws" {
 							Entrypoint:       "examples/aws",
 							RemotePullPolicy: func() *v1beta1.RemotePullPolicy { p := v1beta1.RemotePullPolicyIfNotPresent; return &p }(),
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 					Status: v1beta1.WorkspaceStatus{
@@ -834,8 +834,8 @@ provider "registry.opentofu.org/hashicorp/aws" {
 							Entrypoint:       "examples/aws", // Tofu will run in subdirectory
 							RemotePullPolicy: func() *v1beta1.RemotePullPolicy { p := v1beta1.RemotePullPolicyIfNotPresent; return &p }(),
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 					Status: v1beta1.WorkspaceStatus{
@@ -881,8 +881,8 @@ provider "registry.opentofu.org/hashicorp/aws" {
 							Module:           "git::https://github.com/org/repo?ref=v2.0.0", // Changed
 							RemotePullPolicy: func() *v1beta1.RemotePullPolicy { p := v1beta1.RemotePullPolicyIfNotPresent; return &p }(),
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 					Status: v1beta1.WorkspaceStatus{
@@ -919,8 +919,8 @@ provider "registry.opentofu.org/hashicorp/aws" {
 							Module:           "git::https://github.com/org/repo?ref=v1.0.0",
 							RemotePullPolicy: func() *v1beta1.RemotePullPolicy { p := v1beta1.RemotePullPolicyIfNotPresent; return &p }(),
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 				},
@@ -966,8 +966,8 @@ provider "registry.opentofu.org/hashicorp/aws" {
 						ForProvider: v1beta1.WorkspaceParameters{
 							InitArgs: []string{"-upgrade=true"},
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							ProviderConfigReference: &xpv1.Reference{},
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
 						},
 					},
 				},

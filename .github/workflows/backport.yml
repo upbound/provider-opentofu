@@ -16,13 +16,13 @@ on:
 
 jobs:
   open-pr:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     if: github.event.pull_request.merged
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Open Backport PR
-        uses: zeebe-io/backport-action@ca4972adce8039ff995e618f5fc02d1b7961f27a # v3.3.0
+        uses: zeebe-io/backport-action@ad272ff24e4a8593bf18a951a154ae6af93b26b8 # v5.0.0
