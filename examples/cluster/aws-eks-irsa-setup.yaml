@@ -30,7 +30,6 @@ metadata:
   annotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNTID:role/provider-opentofu
 spec:
-  image: crossplane/provider-opentofu-controller:v0.2.0
   args:
     - "--debug"
   podSecurityContext:
@@ -41,7 +40,7 @@ kind: Provider
 metadata:
   name: crossplane-provider-opentofu
 spec:
-  package: crossplane/provider-opentofu:v0.2.0
+  package: xpkg.upbound.io/upbound/provider-opentofu:v1.1.5
   controllerConfigRef:
     name: opentofu-config
 ---
