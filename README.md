@@ -118,6 +118,23 @@ and you can check what an image actually ships with:
 docker run --rm --entrypoint tofu xpkg.upbound.io/upbound/provider-opentofu:<version> version
 ```
 
+### Reaping zombie processes
+
+The provider runs as PID 1 in its container and reaps the zombie processes
+left behind by `tofu` and `git`, for example orphaned `git` subprocesses of
+`tofu init -from-module=<git url>`. To find its child processes it reads
+`/proc/self/task/<tid>/children`, which needs a node kernel built with
+`CONFIG_PROC_CHILDREN`. `CONFIG_CHECKPOINT_RESTORE`, which CRIU and container
+checkpointing need, also enables it. The kernels of all common Kubernetes node
+operating systems enable it, for example Container-Optimized OS, Bottlerocket,
+Azure Linux, Ubuntu, Debian, RHEL and Red Hat Enterprise Linux CoreOS,
+Fedora CoreOS, Flatcar and Talos.
+
+If the kernel lacks it, the provider logs `Zombie process reaper is disabled`
+at startup and runs without reaping, so zombie processes can accumulate in
+the container. To check a node, run `zgrep PROC_CHILDREN /proc/config.gz` or
+`grep PROC_CHILDREN /boot/config-$(uname -r)`.
+
 ### Polling Interval
 The default polling interval has been updated to 10 minutes from 1 minute.
 This affects how often the provider will run `tofu plan` on existing
