@@ -1821,3 +1821,60 @@ func TestDelete(t *testing.T) {
 		})
 	}
 }
+
+func TestConnectGitCredentialsScope(t *testing.T) {
+	os.Unsetenv("GIT_CRED_DIR")
+	fs := afero.Afero{Fs: afero.NewMemMapFs()}
+	var seen []string
+	connector := func(creds []v1beta1.ProviderCredentials) *connector {
+		return &connector{
+			kube: &test.MockClient{
+				MockGet: test.NewMockGetFn(nil, func(obj client.Object) error {
+					if pc, ok := obj.(*v1beta1.ProviderConfig); ok {
+						pc.Spec.Credentials = creds
+					}
+					return nil
+				}),
+			},
+			usage:  clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
+			logger: logging.NewNopLogger(),
+			fs:     fs,
+			tofu: func(_ string, _ bool, _ bool, _ logging.Logger, _ ...string) tofuclient {
+				return &MockTofu{
+					MockInit: func(ctx context.Context, o ...opentofu.InitOption) error {
+						seen = append(seen, os.Getenv("GIT_CRED_DIR"))
+						return nil
+					},
+					MockWorkspace: func(ctx context.Context, name string) error { return nil },
+				}
+			},
+		}
+	}
+	workspace := func(uid string) *v1beta1.Workspace {
+		return &v1beta1.Workspace{
+			ObjectMeta: metav1.ObjectMeta{UID: types.UID(uid)},
+			Spec: v1beta1.WorkspaceSpec{
+				ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+					ProviderConfigReference: &xpv2.Reference{},
+				},
+				ForProvider: v1beta1.WorkspaceParameters{Module: "// inline", Source: v1beta1.ModuleSourceInline},
+			},
+		}
+	}
+	withGit := []v1beta1.ProviderCredentials{{Filename: ".git-credentials", Source: xpv2.CredentialsSourceNone}}
+
+	if _, err := connector(withGit).Connect(context.Background(), workspace("with-git")); err != nil {
+		t.Fatalf("Connect(with git credentials): %v", err)
+	}
+	if _, err := connector(nil).Connect(context.Background(), workspace("without-git")); err != nil {
+		t.Fatalf("Connect(without git credentials): %v", err)
+	}
+
+	want := []string{filepath.Join("/tmp", tfDir, "with-git"), ""}
+	if diff := cmp.Diff(want, seen); diff != "" {
+		t.Errorf("GIT_CRED_DIR seen by tofu init: -want, +got:\n%s", diff)
+	}
+	if got := os.Getenv("GIT_CRED_DIR"); got != "" {
+		t.Errorf("GIT_CRED_DIR still set after Connect: %q", got)
+	}
+}
