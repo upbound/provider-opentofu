@@ -311,6 +311,32 @@ func TestConnect(t *testing.T) {
 			},
 			want: errors.Wrap(errBoom, errWriteCreds),
 		},
+		"EntrypointOutsideWorkspace": {
+			reason: "We should reject an entrypoint that resolves outside the workspace directory before writing anything there",
+			fields: fields{
+				kube: &test.MockClient{
+					MockGet: test.NewMockGetFn(nil),
+				},
+				usage: clients.LegacyTrackerFn(func(_ context.Context, _ resource.LegacyManaged) error { return nil }),
+				fs:    afero.Afero{Fs: afero.NewMemMapFs()},
+			},
+			args: args{
+				mg: &v1beta1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{UID: uid},
+					Spec: v1beta1.WorkspaceSpec{
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							ProviderConfigReference: &xpv2.Reference{},
+						},
+						ForProvider: v1beta1.WorkspaceParameters{
+							Module:     "I'm HCL!",
+							Source:     v1beta1.ModuleSourceInline,
+							Entrypoint: "../other-workspace",
+						},
+					},
+				},
+			},
+			want: errors.New(errEntrypoint),
+		},
 		"WriteProviderGitCredentialsError": {
 			reason: "We should return any error encountered while writing our git credentials to a file",
 			fields: fields{
@@ -1817,6 +1843,35 @@ func TestDelete(t *testing.T) {
 			_, err := e.Delete(tc.args.ctx, tc.args.mg)
 			if diff := cmp.Diff(tc.want, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\ne.Delete(...): -want error, +got error:\n%s\n", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestWorkspaceDir(t *testing.T) {
+	root := filepath.Join(tfDir, "no-you-id")
+	cases := map[string]struct {
+		entrypoint string
+		want       string
+		err        error
+	}{
+		"Empty":          {entrypoint: "", want: root},
+		"Subdirectory":   {entrypoint: "examples/basic", want: filepath.Join(root, "examples", "basic")},
+		"CleanedInside":  {entrypoint: "a/../b", want: filepath.Join(root, "b")},
+		"DotsAsName":     {entrypoint: "....//other", want: filepath.Join(root, "....", "other")},
+		"Parent":         {entrypoint: "..", err: errors.New(errEntrypoint)},
+		"ParentSibling":  {entrypoint: "../other", err: errors.New(errEntrypoint)},
+		"NestedEscape":   {entrypoint: "sub/../../other", err: errors.New(errEntrypoint)},
+		"AbsoluteInside": {entrypoint: "/sub", want: filepath.Join(root, "sub")},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := workspaceDir(root, tc.entrypoint)
+			if diff := cmp.Diff(tc.err, err, test.EquateErrors()); diff != "" {
+				t.Errorf("workspaceDir(...): -want error, +got error:\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("workspaceDir(...): -want, +got:\n%s", diff)
 			}
 		})
 	}
