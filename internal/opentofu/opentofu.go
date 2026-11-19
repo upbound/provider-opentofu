@@ -675,7 +675,7 @@ func runCommand(ctx context.Context, c *exec.Cmd) ([]byte, error) {
 		return c.Process.Signal(syscall.SIGTERM)
 	}
 	out, err := c.Output()
-	if ctx.Err() != nil {
+	if err != nil && ctx.Err() != nil {
 		return nil, errors.Wrap(ctx.Err(), errRunCommand)
 	}
 	return out, err

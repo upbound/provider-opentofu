@@ -302,6 +302,22 @@ func TestRunCommand(t *testing.T) {
 			t.Errorf("runCommand(...) took %s, the process was not terminated on cancellation", elapsed)
 		}
 	})
+	t.Run("ContextDoneAfterSuccess", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+		// sh exits at once, but the background sleep keeps stdout open, so
+		// runCommand returns only after the context has ended.
+		out, err := runCommand(ctx, exec.CommandContext(ctx, "sh", "-c", "echo ok; sleep 1 &"))
+		if ctx.Err() == nil {
+			t.Fatal("runCommand(...) returned before the context ended")
+		}
+		if err != nil {
+			t.Fatalf("runCommand(...): unexpected error %v", err)
+		}
+		if string(out) != "ok\n" {
+			t.Errorf("runCommand(...): want %q, got %q", "ok\n", string(out))
+		}
+	})
 	t.Run("Succeeds", func(t *testing.T) {
 		ctx := context.Background()
 		out, err := runCommand(ctx, exec.CommandContext(ctx, "echo", "ok"))
