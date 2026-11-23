@@ -524,3 +524,85 @@ func TestGenerateChecksum(t *testing.T) {
 		t.Errorf("The checksum should change when the workspace does: got %q both before and after adding a file", first)
 	}
 }
+
+// TestGenerateChecksumPaths checks which files take part in the checksum.
+// Installed providers and the .git directory are pruned, because their content
+// does not decide whether `tofu init` needs to run again; everything else in
+// the workspace, installed modules included, counts.
+func TestGenerateChecksumPaths(t *testing.T) {
+	type args struct {
+		path string
+	}
+	type want struct {
+		changed bool
+	}
+
+	cases := map[string]struct {
+		reason string
+		args   args
+		want   want
+	}{
+		"InstalledProvider": {
+			reason: "A provider installed under .terraform/providers should not change the checksum.",
+			args: args{
+				path: ".terraform/providers/registry.opentofu.org/hashicorp/null/3.2.4/linux_amd64/terraform-provider-null",
+			},
+			want: want{
+				changed: false,
+			},
+		},
+		"GitDirectory": {
+			reason: "A file under .git should not change the checksum.",
+			args: args{
+				path: ".git/HEAD",
+			},
+			want: want{
+				changed: false,
+			},
+		},
+		"InstalledModule": {
+			reason: "A module installed under .terraform/modules should change the checksum.",
+			args: args{
+				path: ".terraform/modules/modules.json",
+			},
+			want: want{
+				changed: true,
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte("# empty\n"), 0o600); err != nil {
+				t.Fatalf("Cannot write test module: %v", err)
+			}
+
+			tf := Harness{Path: tofuBinaryPath, Dir: dir}
+
+			before, err := tf.GenerateChecksum(ctx)
+			if err != nil {
+				t.Fatalf("tf.GenerateChecksum(...): unexpected error: %v", err)
+			}
+
+			path := filepath.Join(dir, tc.args.path)
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatalf("Cannot create directory for %s: %v", tc.args.path, err)
+			}
+			if err := os.WriteFile(path, []byte("content\n"), 0o600); err != nil {
+				t.Fatalf("Cannot write %s: %v", tc.args.path, err)
+			}
+
+			after, err := tf.GenerateChecksum(ctx)
+			if err != nil {
+				t.Fatalf("tf.GenerateChecksum(...): unexpected error: %v", err)
+			}
+
+			if diff := cmp.Diff(tc.want.changed, after != before); diff != "" {
+				t.Errorf("\n%s\ntf.GenerateChecksum(...) changed: -want, +got:\n%s", tc.reason, diff)
+			}
+		})
+	}
+}
