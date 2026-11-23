@@ -7,8 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package opentofu
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
+	"io"
 	"os/exec"
+	"regexp"
 	"testing"
 	"time"
 
@@ -150,29 +155,16 @@ func TestOutputJSONValue(t *testing.T) {
 	}
 }
 
-func TestClassify(t *testing.T) {
-	tferrs := make(map[string]error)
-	expectedOutput := make(map[string]error)
-
-	tferrs["unexpectedName"] = &exec.ExitError{
-		Stderr: []byte(heredoc.Doc(`
+var stderrUnsupportedArgument = heredoc.Doc(`
 	│ Error: Unsupported argument
 	│
 	│   on test.tf line 10, in resource "aws_s3_bucket" "example":
 	│   10:   name = "cp-example-${opentofu.workspace}-${random_id.example.hex}"
 	│
 	│ An argument named "name" is not expected here.
-	`)),
-	}
+	`)
 
-	expectedOutput["unexpectedName"] = errors.New(
-		heredoc.Doc(
-			`OpenTofu encountered an error. Summary: Unsupported argument. To see the full error run: echo "H4sIAAAAAAAA/zyPMWoDMRBFe5/iI1xmhU26hRQpcoTUi6L9jhdbM2Ik4QXjxmfwCX2SsGFxMUzzeLz/fNzxZabW41tKy1mtckSw35YodfN83JcDoILKUn094DwJsd+9YRIYizaLhAuXMpT34afFE6uD4xxSPtP1q2C/6wFISMQHXMzdCnTbq2ZK1UPzF7VTySHy1m2vFmTUNEyjX0l/5Hxzr6ZPeXX+a0e45TlMBaIVnDPjsuZIo9/8AQAA//8BAAD//1Bzr8vrAAAA" | base64 -d | gunzip`,
-		),
-	)
-
-	tferrs["tooManyListItems"] = &exec.ExitError{
-		Stderr: []byte(heredoc.Doc(`
+var stderrTooManyListItems = heredoc.Doc(`
 	│ Error: Too many list items
 	│
 	│   with aws_cognito_user_pool_client.client,
@@ -180,104 +172,108 @@ func TestClassify(t *testing.T) {
 	│   21:   allowed_oauth_flows = jsondecode(base64decode("ICBbIkFMTE9XX0FETUlOX1VTRVJfUEFTU1dPUkRfQVVUSCIsICJBTExPV19SRUZSRVNIX1RPS0VOX0FVVEgiLCAiQUxMT1dfVVNFUl9QQVNTV09SRF9BVVRIIiwgIkFMTE9XX1VTRVJfU1JQX0FVVEgiXQo="))
 	│
 	│ Attribute allowed_oauth_flows supports 3 item maximum, but config has 4 declared.
-	`)),
+	`)
+
+// gunzipBase64 reverses the encoding of formatTofuErrorOutput. Tests compare
+// the decoded text because compress/gzip output differs between Go releases.
+func gunzipBase64(t *testing.T, encoded string) string {
+	t.Helper()
+
+	compressed, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("base64.StdEncoding.DecodeString(%q): %v", encoded, err)
 	}
 
-	expectedOutput["tooManyListItems"] = errors.New(
-		heredoc.Doc(
-			`OpenTofu encountered an error. Summary: Too many list items. To see the full error run: echo "H4sIAAAAAAAA/3yRwWrbQBBA7/mKQacGjNGmoSBDDrGQQKZxLGl3Eb2IlbSSt1ntmN0Vcq/5hnyhv6S0lX0qOQwzA8N7zMzl4x0Sa9FugCLCKMwv0Mp5UF6O7u7y8f4nAGBW/ghidnWLg1Ee68lJW58Qdd1qJY1f/0urZR4NjEKZte9BKyPhgaxAGbDS4WRbCcFnrACCpdgsuAeyAQChNc6yq1FM/lj3GmcHT/DToelki5380ggnvz0uTZDF2yZ7S19oElVVmCaU6deKcFrwXc+SlDLSHdhb0eecszLOXBbvtjQ5HziJyoL9KAu+zypSHMqQv1ZhynkyqO/xs8rZ+YWSrud8nzId5TnfUx5GZZFGW86LLFPzcPNefWSXXxlVjk/B/f3tus/eW9VMXv53QTedTmi9g69/nwKjOKtxGlfQTB5aNL0a4CgcPEInWy2s7NZ3vwEAAP//AQAA//9AvYb+1wEAAA==" | base64 -d | gunzip`,
-		),
-	)
-
-	output := Classify(tferrs["unexpectedName"])
-
-	if output.Error() != expectedOutput["unexpectedName"].Error() {
-		t.Errorf("Unexpected error classification got:\n`%s`\nexpected:\n`%s`", output, expectedOutput["unexpectedName"])
+	r, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		t.Fatalf("gzip.NewReader(...): %v", err)
 	}
 
-	output = Classify(tferrs["tooManyListItems"])
+	decoded, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("io.ReadAll(...): %v", err)
+	}
 
-	if output.Error() != expectedOutput["tooManyListItems"].Error() {
-		t.Errorf("Unexpected error classification got:\n`%s`\nexpected:\n`%s`", output, expectedOutput["tooManyListItems"])
+	return string(decoded)
+}
+
+func TestClassify(t *testing.T) {
+	classified := regexp.MustCompile(`^OpenTofu encountered an error\. Summary: (.*)\. To see the full error run: echo "([A-Za-z0-9+/=]*)" \| base64 -d \| gunzip$`)
+
+	type args struct {
+		err error
+	}
+	type want struct {
+		summary string
+		output  string
+	}
+
+	cases := map[string]struct {
+		args args
+		want want
+	}{
+		"UnsupportedArgument": {
+			args: args{err: &exec.ExitError{Stderr: []byte(stderrUnsupportedArgument)}},
+			want: want{summary: "Unsupported argument", output: stderrUnsupportedArgument},
+		},
+		"TooManyListItems": {
+			args: args{err: &exec.ExitError{Stderr: []byte(stderrTooManyListItems)}},
+			want: want{summary: "Too many list items", output: stderrTooManyListItems},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := Classify(tc.args.err)
+
+			m := classified.FindStringSubmatch(err.Error())
+			if m == nil {
+				t.Fatalf("Classify(...): %q does not match %s", err, classified)
+			}
+
+			got := want{summary: m[1], output: gunzipBase64(t, m[2])}
+			if diff := cmp.Diff(tc.want, got, cmp.AllowUnexported(want{})); diff != "" {
+				t.Errorf("\nClassify(...): -want, +got:\n%s", diff)
+			}
+		})
 	}
 }
 
 func TestFormatTofuErrorOutput(t *testing.T) {
-	tofuerrs := make(map[string]string)
-	expectedOutput := make(map[string]map[string]string)
-
-	tofuerrs["unexpectedName"] = heredoc.Doc(`
-	│ Error: Unsupported argument
-	│
-	│   on test.tf line 10, in resource "aws_s3_bucket" "example":
-	│   10:   name = "cp-example-${opentofu.workspace}-${random_id.example.hex}"
-	│
-	│ An argument named "name" is not expected here.
-	`)
-
-	expectedOutput["unexpectedName"] = make(map[string]string)
-	expectedOutput["unexpectedName"]["summary"] = heredoc.Doc(`
-	Unsupported argument`)
-
-	expectedOutput["unexpectedName"]["base64full"] = "H4sIAAAAAAAA/zyPMWoDMRBFe5/iI1xmhU26hRQpcoTUi6L9jhdbM2Ik4QXjxmfwCX2SsGFxMUzzeLz/fNzxZabW41tKy1mtckSw35YodfN83JcDoILKUn094DwJsd+9YRIYizaLhAuXMpT34afFE6uD4xxSPtP1q2C/6wFISMQHXMzdCnTbq2ZK1UPzF7VTySHy1m2vFmTUNEyjX0l/5Hxzr6ZPeXX+a0e45TlMBaIVnDPjsuZIo9/8AQAA//8BAAD//1Bzr8vrAAAA"
-
-	tofuerrs["tooManyListItems"] = heredoc.Doc(`
-	│ Error: Too many list items
-	│
-	│   with aws_cognito_user_pool_client.client,
-	│   on main.tf line 21, in resource "aws_cognito_user_pool_client" "client":
-	│   21:   allowed_oauth_flows = jsondecode(base64decode("ICBbIkFMTE9XX0FETUlOX1VTRVJfUEFTU1dPUkRfQVVUSCIsICJBTExPV19SRUZSRVNIX1RPS0VOX0FVVEgiLCAiQUxMT1dfVVNFUl9QQVNTV09SRF9BVVRIIiwgIkFMTE9XX1VTRVJfU1JQX0FVVEgiXQo="))
-	│
-	│ Attribute allowed_oauth_flows supports 3 item maximum, but config has 4 declared.
-	`)
-
-	expectedOutput["tooManyListItems"] = make(map[string]string)
-	expectedOutput["tooManyListItems"]["summary"] = heredoc.Doc(`
-	Too many list items`)
-
-	expectedOutput["tooManyListItems"]["base64full"] = "H4sIAAAAAAAA/3yRwWrbQBBA7/mKQacGjNGmoSBDDrGQQKZxLGl3Eb2IlbSSt1ntmN0Vcq/5hnyhv6S0lX0qOQwzA8N7zMzl4x0Sa9FugCLCKMwv0Mp5UF6O7u7y8f4nAGBW/ghidnWLg1Ee68lJW58Qdd1qJY1f/0urZR4NjEKZte9BKyPhgaxAGbDS4WRbCcFnrACCpdgsuAeyAQChNc6yq1FM/lj3GmcHT/DToelki5380ggnvz0uTZDF2yZ7S19oElVVmCaU6deKcFrwXc+SlDLSHdhb0eecszLOXBbvtjQ5HziJyoL9KAu+zypSHMqQv1ZhynkyqO/xs8rZ+YWSrud8nzId5TnfUx5GZZFGW86LLFPzcPNefWSXXxlVjk/B/f3tus/eW9VMXv53QTedTmi9g69/nwKjOKtxGlfQTB5aNL0a4CgcPEInWy2s7NZ3vwEAAP//AQAA//9AvYb+1wEAAA=="
-
-	summary, base64FullErr, err := formatTofuErrorOutput(tofuerrs["unexpectedName"])
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
+	type args struct {
+		errorOutput string
+	}
+	type want struct {
+		summary string
+		output  string
 	}
 
-	if summary != expectedOutput["unexpectedName"]["summary"] {
-		t.Errorf(
-			"Unexpected error summary value got:`%s`\nexpected: `%s`",
-			summary,
-			expectedOutput["unexpectedName"]["summary"],
-		)
+	cases := map[string]struct {
+		args args
+		want want
+	}{
+		"UnsupportedArgument": {
+			args: args{errorOutput: stderrUnsupportedArgument},
+			want: want{summary: "Unsupported argument", output: stderrUnsupportedArgument},
+		},
+		"TooManyListItems": {
+			args: args{errorOutput: stderrTooManyListItems},
+			want: want{summary: "Too many list items", output: stderrTooManyListItems},
+		},
 	}
 
-	if base64FullErr != expectedOutput["unexpectedName"]["base64full"] {
-		t.Errorf(
-			"Unexpected error base64full got:`%s`\nexpected: `%s`",
-			base64FullErr,
-			expectedOutput["unexpectedName"]["base64full"],
-		)
-	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			summary, base64FullErr, err := formatTofuErrorOutput(tc.args.errorOutput)
+			if err != nil {
+				t.Fatalf("formatTofuErrorOutput(...): %v", err)
+			}
 
-	summary, base64FullErr, err = formatTofuErrorOutput(tofuerrs["tooManyListItems"])
-
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
-	}
-
-	if summary != expectedOutput["tooManyListItems"]["summary"] {
-		t.Errorf(
-			"Unexpected error classification got:`%s`\nexpected: `%s`",
-			summary,
-			expectedOutput["tooManyListItems"]["summary"],
-		)
-	}
-
-	if base64FullErr != expectedOutput["tooManyListItems"]["base64full"] {
-		t.Errorf(
-			"Unexpected error base64full got:`%s`\nexpected: `%s`",
-			base64FullErr,
-			expectedOutput["tooManyListItems"]["base64full"],
-		)
+			got := want{summary: summary, output: gunzipBase64(t, base64FullErr)}
+			if diff := cmp.Diff(tc.want, got, cmp.AllowUnexported(want{})); diff != "" {
+				t.Errorf("\nformatTofuErrorOutput(...): -want, +got:\n%s", diff)
+			}
+		})
 	}
 }
 
