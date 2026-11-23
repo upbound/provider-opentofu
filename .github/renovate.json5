@@ -155,6 +155,16 @@
       allowedVersions: '<1.0',
     },
     {
+      description: 'Stay on go-getter v1: v2 drops the S3 and GCS getters, turns off X-Terraform-Get and lacks fixes v1 has, such as GHSA-92mm-2pjq-r785',
+      matchDatasources: [
+        'go',
+      ],
+      matchDepNames: [
+        'github.com/hashicorp/go-getter',
+      ],
+      allowedVersions: '<2.0.0',
+    },
+    {
       description: 'Ignore k8s dependencies, should be updated on crossplane-runtime',
       matchDatasources: [
         'go',
