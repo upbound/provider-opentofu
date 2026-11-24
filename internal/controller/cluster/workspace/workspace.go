@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/afero"
 	corev1 "k8s.io/api/core/v1"
 	extensionsV1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,6 +61,7 @@ const (
 	errResources       = "cannot list tofu resources"
 	errDiff            = "cannot diff (i.e. plan) tofu configuration"
 	errOutputs         = "cannot list tofu outputs"
+	errGetConnSecret   = "cannot get connection secret"
 	errOptions         = "cannot determine tofu options"
 	errApply           = "cannot apply tofu configuration"
 	errDestroy         = "cannot destroy tofu configuration"
@@ -439,6 +441,10 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, errChecksum)
 	}
+	cd, err := c.connectionDetails(ctx, cr, op)
+	if err != nil {
+		return managed.ExternalObservation{}, err
+	}
 
 	// Preserve remoteSource from previous status (set in Connect)
 	// Generate observation with all persistent fields
@@ -455,7 +461,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		ResourceExists:          len(r)+len(op) > 0,
 		ResourceUpToDate:        !differs,
 		ResourceLateInitialized: false,
-		ConnectionDetails:       op2cd(op),
+		ConnectionDetails:       cd,
 	}, nil
 }
 
@@ -491,6 +497,10 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errChecksum)
 	}
+	cd, err := c.connectionDetails(ctx, cr, op)
+	if err != nil {
+		return managed.ExternalUpdate{}, err
+	}
 
 	// Preserve remoteSource and update observation with checksum
 	cr.Status.AtProvider = generateWorkspaceObservation(op, checksum, cr.Status.AtProvider.RemoteSource)
@@ -502,7 +512,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	// on the first pass and it will get reset to Available() by Observe() on the next pass if there are no differences.
 	// Leave this call for the Update() case.
 	cr.Status.SetConditions(xpv2.Available())
-	return managed.ExternalUpdate{ConnectionDetails: op2cd(op)}, nil
+	return managed.ExternalUpdate{ConnectionDetails: cd}, nil
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
@@ -568,6 +578,34 @@ func (c *external) options(ctx context.Context, p v1beta1.WorkspaceParameters) (
 	}
 
 	return o, nil
+}
+
+// connectionDetails returns the outputs as connection details, with a nil
+// value for every key of the connection secret that is no longer an output.
+// crossplane-runtime publishes connection details as a JSON merge patch, which
+// keeps the keys it doesn't contain and removes the keys it sets to null. A
+// deleted Workspace skips the read, so an error getting the secret can't block
+// its deletion.
+func (c *external) connectionDetails(ctx context.Context, cr *v1beta1.Workspace, op []opentofu.Output) (managed.ConnectionDetails, error) {
+	cd := op2cd(op)
+	ref := cr.GetWriteConnectionSecretToReference()
+	if ref == nil || meta.WasDeleted(cr) {
+		return cd, nil
+	}
+	s := &corev1.Secret{}
+	err := c.kube.Get(ctx, types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name}, s)
+	if kerrors.IsNotFound(err) {
+		return cd, nil
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, errGetConnSecret)
+	}
+	for k := range s.Data {
+		if _, ok := cd[k]; !ok {
+			cd[k] = nil
+		}
+	}
+	return cd, nil
 }
 
 func op2cd(o []opentofu.Output) managed.ConnectionDetails {

@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/afero"
 	corev1 "k8s.io/api/core/v1"
 	extensionsV1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -1030,9 +1031,35 @@ provider "registry.opentofu.org/hashicorp/aws" {
 	}
 }
 
+// connSecretGetFn returns the connection secret with the supplied data for the
+// supplied key, and NotFound for any other object.
+func connSecretGetFn(key client.ObjectKey, data map[string][]byte) test.MockGetFn {
+	return func(_ context.Context, k client.ObjectKey, obj client.Object) error {
+		s, ok := obj.(*corev1.Secret)
+		if !ok || k != key {
+			return kerrors.NewNotFound(corev1.Resource("secrets"), k.Name)
+		}
+		s.Data = data
+		return nil
+	}
+}
+
 func TestObserve(t *testing.T) {
 	errBoom := errors.New("boom")
 	now := metav1.Now()
+	connSecretKey := client.ObjectKey{Namespace: "default", Name: "conn"}
+	connSecretWorkspace := func() *v1beta1.Workspace {
+		return &v1beta1.Workspace{
+			Spec: v1beta1.WorkspaceSpec{
+				ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+					WriteConnectionSecretToReference: &xpv2.SecretReference{Namespace: connSecretKey.Namespace, Name: connSecretKey.Name},
+				},
+			},
+		}
+	}
+	stringOutput := func(ctx context.Context) ([]opentofu.Output, error) {
+		return []opentofu.Output{{Name: "string", Type: opentofu.OutputTypeString}}, nil
+	}
 	type fields struct {
 		tofu tofuclient
 		kube client.Client
@@ -1438,6 +1465,138 @@ func TestObserve(t *testing.T) {
 				},
 			},
 		},
+		"ConnectionSecretStaleKeys": {
+			reason: "A connection secret key that is no longer an output should get a nil value, so that publishing removes it",
+			fields: fields{
+				tofu: &MockTofu{
+					MockDiff:             func(ctx context.Context, o ...opentofu.Option) (bool, error) { return false, nil },
+					MockGenerateChecksum: func(ctx context.Context) (string, error) { return tfChecksum, nil },
+					MockResources: func(ctx context.Context) ([]string, error) {
+						return []string{"cool_resource.very"}, nil
+					},
+					MockOutputs: stringOutput,
+				},
+				kube: &test.MockClient{
+					MockGet: connSecretGetFn(connSecretKey, map[string][]byte{
+						"string": []byte("old"),
+						"stale":  []byte("gone"),
+					}),
+				},
+			},
+			args: args{
+				mg: connSecretWorkspace(),
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists:   true,
+					ResourceUpToDate: true,
+					ConnectionDetails: managed.ConnectionDetails{
+						"string": []byte{},
+						"stale":  nil,
+					},
+				},
+				wo: v1beta1.WorkspaceObservation{
+					Checksum: tfChecksum,
+					Outputs: map[string]extensionsV1.JSON{
+						"string": {Raw: []byte("null")},
+					},
+				},
+			},
+		},
+		"ConnectionSecretNotFound": {
+			reason: "A connection secret that doesn't exist yet should leave the connection details as the outputs",
+			fields: fields{
+				tofu: &MockTofu{
+					MockDiff:             func(ctx context.Context, o ...opentofu.Option) (bool, error) { return false, nil },
+					MockGenerateChecksum: func(ctx context.Context) (string, error) { return tfChecksum, nil },
+					MockResources: func(ctx context.Context) ([]string, error) {
+						return []string{"cool_resource.very"}, nil
+					},
+					MockOutputs: stringOutput,
+				},
+				kube: &test.MockClient{
+					MockGet: connSecretGetFn(client.ObjectKey{Namespace: "other", Name: "conn"}, nil),
+				},
+			},
+			args: args{
+				mg: connSecretWorkspace(),
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists:   true,
+					ResourceUpToDate: true,
+					ConnectionDetails: managed.ConnectionDetails{
+						"string": []byte{},
+					},
+				},
+				wo: v1beta1.WorkspaceObservation{
+					Checksum: tfChecksum,
+					Outputs: map[string]extensionsV1.JSON{
+						"string": {Raw: []byte("null")},
+					},
+				},
+			},
+		},
+		"GetConnectionSecretError": {
+			reason: "We should return any error we encounter getting the connection secret",
+			fields: fields{
+				tofu: &MockTofu{
+					MockDiff:             func(ctx context.Context, o ...opentofu.Option) (bool, error) { return false, nil },
+					MockGenerateChecksum: func(ctx context.Context) (string, error) { return tfChecksum, nil },
+					MockResources: func(ctx context.Context) ([]string, error) {
+						return []string{"cool_resource.very"}, nil
+					},
+					MockOutputs: stringOutput,
+				},
+				kube: &test.MockClient{
+					MockGet: test.NewMockGetFn(errBoom),
+				},
+			},
+			args: args{
+				mg: connSecretWorkspace(),
+			},
+			want: want{
+				err: errors.Wrap(errBoom, errGetConnSecret),
+			},
+		},
+		"DeletedSkipsConnectionSecret": {
+			reason: "A deleted Workspace shouldn't read the connection secret, so an error getting it can't block the deletion",
+			fields: fields{
+				tofu: &MockTofu{
+					MockDiff:             func(ctx context.Context, o ...opentofu.Option) (bool, error) { return false, nil },
+					MockGenerateChecksum: func(ctx context.Context) (string, error) { return tfChecksum, nil },
+					MockResources: func(ctx context.Context) ([]string, error) {
+						return []string{"cool_resource.very"}, nil
+					},
+					MockOutputs: stringOutput,
+				},
+				kube: &test.MockClient{
+					MockGet: test.NewMockGetFn(errBoom),
+				},
+			},
+			args: args{
+				mg: func() *v1beta1.Workspace {
+					cr := connSecretWorkspace()
+					cr.SetDeletionTimestamp(&now)
+					return cr
+				}(),
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists:   true,
+					ResourceUpToDate: true,
+					ConnectionDetails: managed.ConnectionDetails{
+						"string": []byte{},
+					},
+				},
+				wo: v1beta1.WorkspaceObservation{
+					Checksum: tfChecksum,
+					Outputs: map[string]extensionsV1.JSON{
+						"string": {Raw: []byte("null")},
+					},
+				},
+			},
+		},
 	}
 
 	for name, tc := range cases {
@@ -1660,6 +1819,72 @@ func TestCreate(t *testing.T) {
 						"object": {Raw: []byte("null")},
 					},
 				},
+			},
+		},
+		"ConnectionSecretStaleKeys": {
+			reason: "A connection secret key that is no longer an output after the apply should get a nil value, so that publishing removes it",
+			fields: fields{
+				tofu: &MockTofu{
+					MockApply:            func(_ context.Context, _ ...opentofu.Option) error { return nil },
+					MockGenerateChecksum: func(ctx context.Context) (string, error) { return tfChecksum, nil },
+					MockOutputs: func(ctx context.Context) ([]opentofu.Output, error) {
+						return []opentofu.Output{{Name: "string", Type: opentofu.OutputTypeString}}, nil
+					},
+				},
+				kube: &test.MockClient{
+					MockGet: connSecretGetFn(client.ObjectKey{Namespace: "default", Name: "conn"}, map[string][]byte{
+						"string": []byte("old"),
+						"stale":  []byte("gone"),
+					}),
+				},
+			},
+			args: args{
+				mg: &v1beta1.Workspace{
+					Spec: v1beta1.WorkspaceSpec{
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv2.SecretReference{Namespace: "default", Name: "conn"},
+						},
+					},
+				},
+			},
+			want: want{
+				c: managed.ExternalCreation{
+					ConnectionDetails: managed.ConnectionDetails{
+						"string": []byte{},
+						"stale":  nil,
+					},
+				},
+				wo: v1beta1.WorkspaceObservation{
+					Checksum: tfChecksum,
+					Outputs: map[string]extensionsV1.JSON{
+						"string": {Raw: []byte("null")},
+					},
+				},
+			},
+		},
+		"GetConnectionSecretError": {
+			reason: "We should return any error we encounter getting the connection secret",
+			fields: fields{
+				tofu: &MockTofu{
+					MockApply:            func(_ context.Context, _ ...opentofu.Option) error { return nil },
+					MockGenerateChecksum: func(ctx context.Context) (string, error) { return tfChecksum, nil },
+					MockOutputs:          func(ctx context.Context) ([]opentofu.Output, error) { return nil, nil },
+				},
+				kube: &test.MockClient{
+					MockGet: test.NewMockGetFn(errBoom),
+				},
+			},
+			args: args{
+				mg: &v1beta1.Workspace{
+					Spec: v1beta1.WorkspaceSpec{
+						ClusterManagedResourceSpec: xpv2.ClusterManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv2.SecretReference{Namespace: "default", Name: "conn"},
+						},
+					},
+				},
+			},
+			want: want{
+				err: errors.Wrap(errBoom, errGetConnSecret),
 			},
 		},
 	}
