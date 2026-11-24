@@ -441,9 +441,15 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, errChecksum)
 	}
-	cd, err := c.connectionDetails(ctx, cr, op)
-	if err != nil {
-		return managed.ExternalObservation{}, err
+	// The reconciler publishes these details before it calls Create, so a
+	// state without resources or outputs, for example a lost one, leaves the
+	// connection secret as it is. The publish after Create removes stale keys.
+	exists := len(r)+len(op) > 0
+	cd := op2cd(op)
+	if exists {
+		if cd, err = c.connectionDetails(ctx, cr, op); err != nil {
+			return managed.ExternalObservation{}, err
+		}
 	}
 
 	// Preserve remoteSource from previous status (set in Connect)
@@ -458,7 +464,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	return managed.ExternalObservation{
-		ResourceExists:          len(r)+len(op) > 0,
+		ResourceExists:          exists,
 		ResourceUpToDate:        !differs,
 		ResourceLateInitialized: false,
 		ConnectionDetails:       cd,

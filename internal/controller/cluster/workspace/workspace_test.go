@@ -1597,6 +1597,36 @@ func TestObserve(t *testing.T) {
 				},
 			},
 		},
+		"EmptyStateKeepsConnectionSecret": {
+			reason: "A state without resources or outputs shouldn't remove connection secret keys before Create has run",
+			fields: fields{
+				tofu: &MockTofu{
+					MockDiff:             func(ctx context.Context, o ...opentofu.Option) (bool, error) { return false, nil },
+					MockGenerateChecksum: func(ctx context.Context) (string, error) { return tfChecksum, nil },
+					MockResources:        func(ctx context.Context) ([]string, error) { return nil, nil },
+					MockOutputs:          func(ctx context.Context) ([]opentofu.Output, error) { return nil, nil },
+				},
+				kube: &test.MockClient{
+					MockGet: connSecretGetFn(connSecretKey, map[string][]byte{
+						"string": []byte("old"),
+					}),
+				},
+			},
+			args: args{
+				mg: connSecretWorkspace(),
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists:    false,
+					ResourceUpToDate:  true,
+					ConnectionDetails: managed.ConnectionDetails{},
+				},
+				wo: v1beta1.WorkspaceObservation{
+					Checksum: tfChecksum,
+					Outputs:  map[string]extensionsV1.JSON{},
+				},
+			},
+		},
 	}
 
 	for name, tc := range cases {
