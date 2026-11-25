@@ -106,10 +106,11 @@ const (
 // WorkspaceParameters are the configurable fields of a Workspace.
 type WorkspaceParameters struct {
 	// The root module of this workspace; i.e. the module containing its main.tf
-	// file. When the workspace's source is 'Remote' (the default) this can be
-	// any address supported by tofu init -from-module, for example a git
-	// repository or an S3 bucket. When the workspace's source is 'Inline' the
-	// content of a simple main.tf or main.tf.json file may be written inline.
+	// file. When the workspace's source is 'Remote' this can be any address
+	// supported by go-getter, for example a git repository or an S3 bucket.
+	// OCI registries are not supported as a remote source. When the
+	// workspace's source is 'Inline' the content of a simple main.tf or
+	// main.tf.json file may be written inline.
 	Module string `json:"module"`
 
 	// Specifies the format of the inline Terraform content
